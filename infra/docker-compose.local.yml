@@ -1,0 +1,89 @@
+name: plts-monitor-local
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-plts}
+      POSTGRES_USER: ${POSTGRES_USER:-plts}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD wajib diisi}
+      TZ: Asia/Jakarta
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-plts} -d ${POSTGRES_DB:-plts}"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  api:
+    build:
+      context: ../apps/api
+    environment:
+      APP_NAME: ${APP_NAME:-PLTS Monitor Rumah}
+      APP_ENV: local
+      APP_TIMEZONE: ${APP_TIMEZONE:-Asia/Jakarta}
+      DATABASE_URL: ${DATABASE_URL}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      DEVICE_SLUG: ${DEVICE_SLUG:-prime-rumah-01}
+      DEVICE_NAME: ${DEVICE_NAME:-PLTS Rumah}
+      DEVICE_API_KEY: ${DEVICE_API_KEY}
+      TARIFF_IDR_PER_KWH: ${TARIFF_IDR_PER_KWH:-1550}
+      AUTO_BOOTSTRAP_DEVICE: "false"
+    command: >-
+      sh -c "alembic upgrade head && python -m app.cli ensure-device &&
+      uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  web:
+    build:
+      context: ../apps/web
+    environment:
+      INTERNAL_API_BASE_URL: http://api:8000
+      DEVICE_SLUG: ${DEVICE_SLUG:-prime-rumah-01}
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    profiles: ["tunnel"]
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      web:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
