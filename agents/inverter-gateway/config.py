@@ -20,6 +20,7 @@ class GatewayConfig:
     heartbeat_interval_seconds: float
     queue_db_path: Path
     csv_backup_dir: Path
+    log_file: Path
     gateway_version: str
     timezone: str
     verify_tls: bool
@@ -46,6 +47,7 @@ class GatewayConfig:
             ),
             queue_db_path=Path(getenv("QUEUE_DB_PATH", "./data/offline_queue.sqlite3")),
             csv_backup_dir=Path(getenv("CSV_BACKUP_DIR", "./data/csv")),
+            log_file=Path(getenv("GATEWAY_LOG_FILE", "./data/gateway.log")),
             gateway_version=getenv("GATEWAY_VERSION", "0.1.0"),
             timezone=getenv("TIMEZONE", "Asia/Jakarta"),
             verify_tls=getenv("VERIFY_TLS", "true").lower()

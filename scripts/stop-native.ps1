@@ -8,7 +8,7 @@ if (-not (Test-Path -LiteralPath $PidFile)) {
 $Processes = Get-Content -Raw -LiteralPath $PidFile | ConvertFrom-Json
 foreach ($ProcessId in @($Processes.api, $Processes.web)) {
   if ($ProcessId -and (Get-Process -Id $ProcessId -ErrorAction SilentlyContinue)) {
-    & taskkill.exe /PID $ProcessId /T /F | Out-Null
+    & taskkill.exe /PID $ProcessId /T /F *> $null
   }
 }
 Remove-Item -LiteralPath $PidFile

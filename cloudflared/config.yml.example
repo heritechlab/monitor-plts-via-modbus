@@ -1,10 +1,9 @@
 # Gunakan file ini bila cloudflared dipasang sebagai Windows service.
-# Ganti UUID, lokasi credentials, dan domain.
+# Ganti UUID dan lokasi credentials. Hostname produksi saat ini ada di bawah.
 tunnel: 00000000-0000-0000-0000-000000000000
 credentials-file: C:\Cloudflared\credentials\00000000-0000-0000-0000-000000000000.json
 
 ingress:
-  - hostname: monitor-plts.example.com
+  - hostname: plts-home.udigi.id
     service: http://127.0.0.1:3000
   - service: http_status:404
-

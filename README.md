@@ -22,14 +22,22 @@ Mode native:
 
 - Python 3.13 atau lebih baru. Script juga mendeteksi instalasi Python user yang belum masuk PATH.
 - Node.js 20.9 atau lebih baru.
+- Microsoft Visual C++ Redistributable 2015-2022 x64, dibutuhkan modul `greenlet`.
 - Internet saat instalasi dependency pertama.
 
 Mode Docker:
 
 - Docker Desktop dengan Docker Compose.
 
-Gateway nyata juga membutuhkan CH340 pada COM3 dan tidak boleh dijalankan
-bersamaan dengan QModMaster.
+Gateway nyata juga membutuhkan adaptor CH340 dan tidak boleh dijalankan
+bersamaan dengan QModMaster. `SERIAL_PORT=auto` akan mencari satu adaptor CH340
+dan tetap bekerja bila Windows mengganti nomor COM setelah restart.
+
+Install runtime Visual C++ bila `_greenlet` gagal memuat DLL:
+
+```powershell
+winget install --id Microsoft.VCRedist.2015+.x64 -e --source winget
+```
 
 ## Quick start native tanpa Docker
 
@@ -75,6 +83,17 @@ powershell -ExecutionPolicy Bypass -File .\scripts\stop-native.ps1
 
 Database native berada di `apps/api/data/plts.sqlite3`.
 
+Untuk penggunaan 24/7, jalankan production tanpa `-Development`, lalu pasang
+Scheduled Task dari PowerShell Administrator:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\stop-native.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\start-native.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\install-native-task.ps1
+```
+
+Hapus autostart server dengan `scripts/uninstall-native-task.ps1`.
+
 ## Quick start Docker/PostgreSQL
 
 ```powershell
@@ -115,7 +134,8 @@ Pastikan:
 
 - `DEVICE_API_KEY` sama dengan root `.env`.
 - `API_BASE_URL=http://127.0.0.1:8000`.
-- `SERIAL_PORT=COM3` sesuai Device Manager.
+- `SERIAL_PORT=auto` direkomendasikan untuk satu adaptor CH340. Nomor COM tetap
+  dapat diisi eksplisit bila ada lebih dari satu adaptor serial.
 - QModMaster sudah ditutup.
 
 Setelah gateway terbukti stabil, pasang Scheduled Task:
@@ -124,7 +144,10 @@ Setelah gateway terbukti stabil, pasang Scheduled Task:
 .\install_task.bat
 ```
 
-Hapus task dengan `uninstall_task.bat`.
+Task menjalankan gateway secara tersembunyi, tanpa batas waktu tiga hari,
+dan mencoba restart otomatis bila gateway berhenti. Log tersedia di
+`data/gateway.log` dengan rotasi maksimal lima berkas. Hapus task dengan
+`uninstall_task.bat`.
 
 ## Menjalankan tests
 
@@ -158,10 +181,20 @@ cmd /c npm run build
 Lakukan ini hanya setelah dashboard lokal stabil.
 
 1. Buat tunnel pada Cloudflare Zero Trust.
-2. Arahkan hostname dashboard ke `http://127.0.0.1:3000`.
-3. Buat aplikasi Cloudflare Access yang hanya mengizinkan email Anda.
-4. Install `cloudflared` sebagai Windows service.
-5. Jangan membuat route ke port 8000 atau 5432.
+2. Tambahkan Published application route dengan hostname
+   `plts-home.udigi.id`, kolom Path kosong, Type `HTTP`, dan URL
+   `127.0.0.1:3000`.
+3. Buat aplikasi Cloudflare Access untuk seluruh hostname tersebut dan hanya
+   izinkan email Anda.
+4. Install `cloudflared` sebagai Windows service menggunakan perintah token
+   yang diberikan dashboard. Jangan simpan token ke GitHub atau screenshot.
+5. Pastikan connector berstatus Healthy, lalu uji dari jaringan seluler.
+6. Jangan membuat route ke port 8000 atau 5432.
+
+Tidak ada perubahan `.env` yang wajib untuk tunnel karena browser menggunakan
+proxy same-origin Next.js. Domain publik tetap tercantum pada `CORS_ORIGINS`
+contoh konfigurasi untuk kompatibilitas, sedangkan `INTERNAL_API_BASE_URL` dan
+gateway `API_BASE_URL` tetap memakai loopback lokal.
 
 Template lokal tersedia di `cloudflared/config.yml.example`. Bila memakai
 tunnel remotely-managed, service Compose opsional dapat diaktifkan dengan:
