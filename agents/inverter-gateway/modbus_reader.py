@@ -1,10 +1,11 @@
 import struct
 import time
-from typing import Self
+from collections.abc import Iterable
+from typing import Any, Self
 
 import serial
-
 from crc import append_crc, validate_crc
+from serial.tools import list_ports
 
 
 class ModbusError(RuntimeError):
@@ -19,6 +20,58 @@ class ModbusCrcError(ModbusError):
     pass
 
 
+def _is_ch340(port: Any) -> bool:
+    description = " ".join(
+        str(value or "")
+        for value in (
+            getattr(port, "description", ""),
+            getattr(port, "manufacturer", ""),
+            getattr(port, "product", ""),
+            getattr(port, "hwid", ""),
+        )
+    ).lower()
+    return getattr(port, "vid", None) == 0x1A86 or any(
+        marker in description for marker in ("ch340", "ch341", "usb-serial")
+    )
+
+
+def resolve_serial_port(
+    configured_port: str,
+    detected_ports: Iterable[Any] | None = None,
+) -> str:
+    """Resolve a configured COM port and safely fall back to one CH340 adapter."""
+
+    ports = list(detected_ports if detected_ports is not None else list_ports.comports())
+    configured = configured_port.strip()
+    automatic = configured.lower() == "auto"
+
+    if not automatic:
+        for port in ports:
+            device = str(getattr(port, "device", ""))
+            if device.lower() == configured.lower():
+                return device
+
+    ch340_ports = [port for port in ports if _is_ch340(port)]
+    if len(ch340_ports) == 1:
+        return str(ch340_ports[0].device)
+    if automatic and len(ports) == 1:
+        return str(ports[0].device)
+
+    available = ", ".join(str(getattr(port, "device", "?")) for port in ports)
+    if len(ch340_ports) > 1:
+        raise ModbusError(
+            "Lebih dari satu adaptor CH340 terdeteksi; tetapkan SERIAL_PORT secara eksplisit"
+        )
+    if automatic:
+        raise ModbusError(
+            f"Adaptor USB-RS485 belum terdeteksi (port tersedia: {available or 'tidak ada'})"
+        )
+    raise ModbusError(
+        f"Port {configured} tidak ditemukan dan fallback CH340 tidak tersedia "
+        f"(port tersedia: {available or 'tidak ada'})"
+    )
+
+
 class PrimeModbusReader:
     """Read-only PRIME inverter client. The only emitted function code is FC04."""
 
@@ -29,6 +82,7 @@ class PrimeModbusReader:
     def __init__(self, port: str, baudrate: int, slave_id: int, timeout: float) -> None:
         if not 1 <= slave_id <= 247:
             raise ValueError("Slave ID harus 1..247")
+        self.configured_port = port
         self.port = port
         self.baudrate = baudrate
         self.slave_id = slave_id
@@ -36,10 +90,17 @@ class PrimeModbusReader:
         self._serial: serial.Serial | None = None
 
     def open(self) -> None:
-        if self._serial and self._serial.is_open:
+        resolved_port = resolve_serial_port(self.configured_port)
+        if (
+            self._serial
+            and self._serial.is_open
+            and self.port.lower() == resolved_port.lower()
+        ):
             return
+        self.close()
+        self.port = resolved_port
         self._serial = serial.Serial(
-            port=self.port,
+            port=resolved_port,
             baudrate=self.baudrate,
             bytesize=serial.EIGHTBITS,
             parity=serial.PARITY_NONE,

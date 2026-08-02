@@ -7,6 +7,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -26,13 +27,15 @@ class RuntimeState:
     last_serial_success_at: str | None = None
     serial_status: str = "unknown"
     last_serial_error: str | None = None
+    active_serial_port: str | None = None
     lock: threading.Lock = field(default_factory=threading.Lock)
 
-    def serial_success(self, recorded_at: str) -> None:
+    def serial_success(self, recorded_at: str, serial_port: str) -> None:
         with self.lock:
             self.last_serial_success_at = recorded_at
             self.serial_status = "ok"
             self.last_serial_error = None
+            self.active_serial_port = serial_port
 
     def serial_error(self, error: str) -> None:
         with self.lock:
@@ -51,7 +54,8 @@ class RuntimeState:
                 "queue_depth": queue.depth(),
                 "serial_status": self.serial_status,
                 "detail": {
-                    "serial_port": config.serial_port,
+                    "serial_port": self.active_serial_port or config.serial_port,
+                    "configured_serial_port": config.serial_port,
                     "dead_letter_depth": queue.dead_letter_depth(),
                     "last_serial_error": self.last_serial_error,
                 },
@@ -102,11 +106,24 @@ class SingleInstance:
             self.handle.close()
 
 
-def configure_logging() -> None:
+def configure_logging(log_file: Path | None = None) -> None:
+    handlers: list[logging.Handler] = [logging.StreamHandler()]
+    if log_file is not None:
+        log_file.parent.mkdir(parents=True, exist_ok=True)
+        handlers.append(
+            RotatingFileHandler(
+                log_file,
+                maxBytes=5_000_000,
+                backupCount=5,
+                encoding="utf-8",
+            )
+        )
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s | %(levelname)s | %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
+        handlers=handlers,
+        force=True,
     )
 
 
@@ -196,6 +213,7 @@ def run() -> int:
     except (OSError, ValueError) as exc:
         LOGGER.error("Konfigurasi gagal: %s", exc)
         return 2
+    configure_logging(config.log_file)
 
     queue = OfflineQueue(config.queue_db_path)
     backup = CsvBackup(config.csv_backup_dir, config.device_slug, config.timezone)
@@ -243,7 +261,14 @@ def run() -> int:
                 payload = build_payload(config, queue, state, registers, recorded_at)
                 queue.enqueue(payload)
                 backup.append(payload)
-                state.serial_success(payload["recorded_at"])
+                previous_port = state.active_serial_port
+                state.serial_success(payload["recorded_at"], reader.port)
+                if previous_port != reader.port:
+                    LOGGER.info(
+                        "Serial aktif | configured=%s | active=%s",
+                        config.serial_port,
+                        reader.port,
+                    )
                 metrics = payload["metrics"]
                 LOGGER.info(
                     "PV %.1f V %.1f A %.1f W | BAT %.1f V | OUT %.1f V %.1f A %.0f W %.0f%% "
