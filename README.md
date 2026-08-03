@@ -255,7 +255,11 @@ Gateway hanya memiliki implementasi FC04. Tidak ada fungsi tulis Modbus pada
 source. Validasi dengan smart plug membuktikan register `0x3005` adalah estimasi
 beban semu inverter, bukan watt aktif. Dashboard menampilkannya sebagai VA/kVAh,
 menonaktifkan estimasi surplus yang mencampur W dan VA, dan menghitung nilai
-ekuivalen dari produksi PV. Watt/kWh aktif membutuhkan meter eksternal.
+  ekuivalen dari produksi PV. Watt/kWh aktif membutuhkan meter eksternal.
+
+Halaman publik `/settings` menyediakan inspeksi read-only untuk seluruh raw
+register FC04 yang sudah tersimpan. Analisis kandidat dilakukan dari database
+tanpa permintaan serial tambahan, tanpa FC03, dan tanpa fungsi tulis Modbus.
 
 Lihat juga [arsitektur](docs/ARCHITECTURE.md), [API](docs/API.md),
 [register map](docs/REGISTER_MAP.md), dan [troubleshooting](docs/TROUBLESHOOTING.md).

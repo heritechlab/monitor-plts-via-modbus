@@ -91,6 +91,14 @@ async def test_ingest_duplicate_latest_and_partial_batch() -> None:
             assert latest.status_code == 200
             assert latest.json()["telemetry"] is not None
 
+            registers = await client.get(
+                "/api/v1/devices/prime-rumah-01/register-analysis",
+                params={"hours": 6},
+            )
+            assert registers.status_code == 200
+            assert registers.json()["serial_requests_added"] == 0
+            assert registers.json()["summary"]["known"] == 8
+
             today = datetime.now(UTC).date().isoformat()
             daily = await client.get(f"/api/v1/devices/prime-rumah-01/analytics/daily?date={today}")
             assert daily.status_code == 200

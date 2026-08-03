@@ -12,6 +12,7 @@ from app.core.config import settings
 from app.db.models import Device, GatewayStatus, InverterTelemetry
 from app.db.session import get_db
 from app.services.analytics import as_utc, build_daily_summary, build_monthly_summary
+from app.services.register_analysis import build_register_analysis
 
 router = APIRouter(prefix="/devices", tags=["devices"])
 METRIC_FIELDS = [
@@ -135,6 +136,16 @@ async def latest(slug: str, session: AsyncSession = Depends(get_db)) -> dict:
         "telemetry": telemetry_dict(latest_row, include_raw=True) if latest_row else None,
         "server_time": now.isoformat(),
     }
+
+
+@router.get("/{slug}/register-analysis")
+async def register_analysis(
+    slug: str,
+    hours: Annotated[int, Query(ge=1, le=24)] = 6,
+    session: AsyncSession = Depends(get_db),
+) -> dict:
+    device = await find_device(session, slug)
+    return await build_register_analysis(session, device, hours)
 
 
 @router.get("/{slug}/telemetry")
