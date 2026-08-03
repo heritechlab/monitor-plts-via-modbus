@@ -252,8 +252,10 @@ docs                     Arsitektur, API, register map, troubleshooting
 ## Batas keselamatan
 
 Gateway hanya memiliki implementasi FC04. Tidak ada fungsi tulis Modbus pada
-source. `estimated_surplus` adalah selisih PV dan output AC, bukan daya charge
-baterai. Penghematan rupiah adalah nilai energi ekuivalen, bukan audit PLN.
+source. Validasi dengan smart plug membuktikan register `0x3005` adalah estimasi
+beban semu inverter, bukan watt aktif. Dashboard menampilkannya sebagai VA/kVAh,
+menonaktifkan estimasi surplus yang mencampur W dan VA, dan menghitung nilai
+ekuivalen dari produksi PV. Watt/kWh aktif membutuhkan meter eksternal.
 
 Lihat juga [arsitektur](docs/ARCHITECTURE.md), [API](docs/API.md),
 [register map](docs/REGISTER_MAP.md), dan [troubleshooting](docs/TROUBLESHOOTING.md).

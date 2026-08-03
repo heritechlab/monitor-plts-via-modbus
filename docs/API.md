@@ -22,3 +22,13 @@ Endpoint baca:
 Batch selalu mengembalikan status per `sample_id`. Gateway hanya menghapus
 `accepted` dan `duplicate`; penolakan permanen masuk dead-letter.
 
+## Semantik beban AC PRIME
+
+Mulai `register_map_version=prime-v2`, nilai register `0x3005` tetap dikirim
+dalam field transport lama `ac_output_power_w` untuk kompatibilitas database,
+tetapi nilainya adalah estimasi beban semu (VA), bukan watt aktif.
+
+Respons analytics menyediakan `ac_load_estimate_kvah`. Field lama
+`ac_output_energy_kwh` dan `estimated_surplus_kwh` bernilai `null` agar tidak
+disalahartikan. Nilai ekuivalen rupiah dihitung dari produksi PV. Pengukuran
+watt/kWh aktif memerlukan meter eksternal.

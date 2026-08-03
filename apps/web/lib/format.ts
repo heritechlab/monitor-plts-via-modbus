@@ -12,6 +12,16 @@ export function power(value: number | null | undefined): { value: string; unit: 
   return { value: number(value, 0), unit: "W" };
 }
 
+export function apparentPower(value: number | null | undefined): { value: string; unit: string } {
+  if (value === null || value === undefined) return { value: "—", unit: "VA" };
+  if (Math.abs(value) >= 1000) return { value: number(value / 1000, 2), unit: "kVA" };
+  return { value: number(value, 0), unit: "VA" };
+}
+
+export function apparentEnergy(value: number | null | undefined): string {
+  return `${number(value, 3)} kVAh`;
+}
+
 export function energy(value: number | null | undefined): string {
   return `${number(value, 3)} kWh`;
 }
@@ -45,4 +55,3 @@ export function timeOnly(value: string): string {
 export function localDateInput(date = new Date()): string {
   return new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Jakarta" }).format(date);
 }
-

@@ -95,6 +95,9 @@ async def test_ingest_duplicate_latest_and_partial_batch() -> None:
             daily = await client.get(f"/api/v1/devices/prime-rumah-01/analytics/daily?date={today}")
             assert daily.status_code == 200
             assert daily.json()["sample_count"] == 2
+            assert daily.json()["ac_load_estimate_kvah"] >= 0
+            assert daily.json()["ac_output_energy_kwh"] is None
+            assert daily.json()["estimated_surplus_kwh"] is None
 
             start = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
             history = await client.get(

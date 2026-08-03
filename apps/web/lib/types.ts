@@ -54,13 +54,16 @@ export interface DailySummary {
   date: string;
   timezone: string;
   pv_energy_kwh: number;
-  ac_output_energy_kwh: number;
-  estimated_surplus_kwh: number;
+  ac_load_estimate_kvah: number;
+  ac_output_energy_kwh: null;
+  estimated_surplus_kwh: null;
   equivalent_saving_idr: number;
   peak_pv_raw_w: number | null;
   peak_pv_1m_avg_w: number | null;
-  peak_output_raw_w: number | null;
-  peak_output_1m_avg_w: number | null;
+  peak_ac_load_estimate_raw_va: number | null;
+  peak_ac_load_estimate_1m_avg_va: number | null;
+  peak_output_raw_w: null;
+  peak_output_1m_avg_w: null;
   max_temperature_c: number | null;
   min_battery_voltage_v: number | null;
   max_battery_voltage_v: number | null;
@@ -71,6 +74,7 @@ export interface DailySummary {
   invalid_sample_count: number;
   pv_coverage_percent: number;
   ac_coverage_percent: number;
+  ac_load_coverage_percent: number;
   first_sample_at: string | null;
   last_sample_at: string | null;
   gaps: { from: string; to: string; seconds: number }[];
@@ -79,8 +83,9 @@ export interface DailySummary {
 export interface MonthlySummary {
   month: string;
   pv_energy_kwh: number;
-  ac_output_energy_kwh: number;
-  estimated_surplus_kwh: number;
+  ac_load_estimate_kvah: number;
+  ac_output_energy_kwh: null;
+  estimated_surplus_kwh: null;
   average_daily_pv_kwh: number;
   equivalent_saving_idr: number;
   days_with_data: number;
@@ -88,4 +93,3 @@ export interface MonthlySummary {
   lowest_day: DailySummary | null;
   days: DailySummary[];
 }
-

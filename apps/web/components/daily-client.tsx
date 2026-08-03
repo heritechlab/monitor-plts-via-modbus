@@ -27,16 +27,16 @@ export function DailyClient({ deviceSlug }: { deviceSlug: string }) {
 
   const cards = [
     { label: "Produksi PV", value: number(data?.pv_energy_kwh, 3), unit: "kWh", caption: `Cakupan ${number(data?.pv_coverage_percent, 1)}%`, icon: SunMedium },
-    { label: "Output AC", value: number(data?.ac_output_energy_kwh, 3), unit: "kWh", caption: `Cakupan ${number(data?.ac_coverage_percent, 1)}%`, icon: Zap },
+    { label: "Beban AC estimasi", value: number(data?.ac_load_estimate_kvah, 3), unit: "kVAh", caption: `Cakupan ${number(data?.ac_load_coverage_percent, 1)}% • bukan kWh aktif`, icon: Zap },
     { label: "Peak PV 1 menit", value: number(data?.peak_pv_1m_avg_w, 0), unit: "W", caption: `Raw ${number(data?.peak_pv_raw_w, 0)} W`, icon: Gauge },
     { label: "Suhu maksimum", value: number(data?.max_temperature_c, 0), unit: "°C", icon: Thermometer },
     { label: "Baterai minimum", value: number(data?.min_battery_voltage_v, 1), unit: "V", caption: `Maks ${number(data?.max_battery_voltage_v, 1)} V`, icon: BatteryMedium },
-    { label: "Estimasi selisih", value: number(data?.estimated_surplus_kwh, 3), unit: "kWh", caption: "Bukan energi baterai", icon: SunMedium },
+    { label: "Peak beban estimasi", value: number(data?.peak_ac_load_estimate_1m_avg_va, 0), unit: "VA", caption: "Rata-rata 1 menit", icon: Zap },
   ];
   return (
     <div>
       <header className="page-header">
-        <div><p className="eyebrow">Daily insight</p><h1>Ringkasan harian.</h1><p className="subtitle">Integrasi energi memakai timestamp aktual dan batas gap 60 detik.</p></div>
+        <div><p className="eyebrow">Daily insight</p><h1>Ringkasan harian.</h1><p className="subtitle">Produksi PV dalam kWh; beban inverter adalah estimasi daya semu dalam kVAh.</p></div>
         <input className="control" type="date" value={date} max={localDateInput()} onChange={(event) => setDate(event.target.value)} />
       </header>
       {error && <div className="error-state panel">{error}</div>}
