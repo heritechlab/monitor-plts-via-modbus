@@ -3,6 +3,7 @@
 import {
   Activity,
   BarChart3,
+  Binary,
   CalendarDays,
   Database,
   Gauge,
@@ -19,6 +20,7 @@ const links = [
   { href: "/history", label: "Riwayat", icon: History },
   { href: "/daily", label: "Harian", icon: CalendarDays },
   { href: "/monthly", label: "Bulanan", icon: BarChart3 },
+  { href: "/settings", label: "Register", icon: Binary },
   { href: "/data-quality", label: "Kualitas data", icon: Activity, desktopOnly: true },
   { href: "/devices", label: "Perangkat", icon: Settings2, desktopOnly: true },
 ];
@@ -58,4 +60,3 @@ export function AppShell({ children }: { children: ReactNode }) {
     </div>
   );
 }
-

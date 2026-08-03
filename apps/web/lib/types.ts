@@ -93,3 +93,41 @@ export interface MonthlySummary {
   lowest_day: DailySummary | null;
   days: DailySummary[];
 }
+
+export interface RegisterCorrelation {
+  metric: MetricName;
+  label: string;
+  coefficient: number;
+}
+
+export interface RegisterAnalysisItem {
+  address: string;
+  status: "known" | "candidate" | "unknown";
+  name: string | null;
+  unit: string | null;
+  scale: string | null;
+  latest_raw: number | null;
+  decoded_value: number | null;
+  min_raw: number;
+  max_raw: number;
+  distinct_values: number;
+  changes: number;
+  activity: "zero" | "stable" | "dynamic";
+  strongest_correlation: RegisterCorrelation | null;
+}
+
+export interface RegisterAnalysisResponse {
+  device_slug: string;
+  hours: number;
+  from: string | null;
+  to: string | null;
+  sample_count: number;
+  analyzed_sample_count: number;
+  latest_recorded_at: string | null;
+  register_map_version: string | null;
+  decoder_version: string | null;
+  read_mode: "database-only";
+  serial_requests_added: number;
+  summary: { known: number; candidate: number; unknown: number };
+  registers: RegisterAnalysisItem[];
+}

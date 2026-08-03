@@ -31,3 +31,16 @@ tidak mengikuti watt aktif smart plug. Karena itu:
 
 Mapping hasil koreksi diberi `register_map_version=prime-v2` dan
 `decoder_version=prime-v2-apparent-load`.
+
+## Inspeksi register dari dashboard
+
+Halaman publik `/settings` menampilkan 32 raw register FC04 terakhir dan
+menganalisis perubahan dari riwayat telemetry yang sudah ada. Register yang
+belum dipetakan hanya diberi status kandidat bila variasi dan korelasinya cukup
+kuat; status tersebut tetap memerlukan validasi manual sebelum masuk register
+map resmi.
+
+Analisis ini database-only: tidak menambah polling serial, tidak melakukan scan
+FC03, dan tidak mengganggu siklus gateway/dashboard live. Pemindaian alamat baru
+di luar blok FC04 yang sudah dibaca harus dilakukan nanti melalui prosedur
+terpisah yang dibatasi dan diawasi.

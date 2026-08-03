@@ -118,6 +118,13 @@ table { width: 100%; border-collapse: collapse; font-size: 12px; }
 th, td { padding: 11px 10px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
 th { color: var(--muted); font-weight: 500; }
 .table-empty { height: 90px; color: var(--muted); text-align: center; }
+.register-address { color: var(--green); font-family: monospace; font-weight: 700; }
+.register-detail { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; font-weight: 400; }
+.register-safety { display: flex; align-items: center; gap: 12px; }
+.register-safety > div:first-of-type { flex: 1; }
+.register-safety strong, .register-safety span { display: block; }
+.register-safety span { margin-top: 4px; color: var(--muted); font-size: 11px; }
+.compact-empty { padding: 26px 10px; color: var(--muted); text-align: center; font-size: 12px; }
 .empty, .error-state { display: grid; place-items: center; min-height: 220px; text-align: center; color: var(--muted); font-size: 13px; }
 .error-state { color: var(--red); }
 .skeleton { border-radius: 8px; background: linear-gradient(90deg, #111813, #17221b, #111813); background-size: 200% 100%; animation: pulse 1.3s infinite; }
