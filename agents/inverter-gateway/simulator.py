@@ -13,13 +13,13 @@ def sample(device_slug: str, index: int, timezone: str) -> dict:
     pv_voltage = 79.5 + math.sin(phase) * 1.8
     pv_current = max(0.0, 8 + math.sin(phase / 2) * 3)
     pv_power = pv_voltage * pv_current
-    output_power = 220 + math.sin(phase * 1.4) * 90
+    output_load_va = 220 + math.sin(phase * 1.4) * 90
     raw_values = [0] * 32
     raw_values[0x01] = 2200
     raw_values[0x02] = 268
-    raw_values[0x03] = round(output_power / 220 * 10)
-    raw_values[0x04] = round(output_power / 10)
-    raw_values[0x05] = round(output_power)
+    raw_values[0x03] = round(output_load_va / 220 * 10)
+    raw_values[0x04] = round(output_load_va / 10)
+    raw_values[0x05] = round(output_load_va)
     raw_values[0x09] = 37
     raw_values[0x10] = round(pv_current * 10)
     raw_values[0x12] = round(pv_voltage * 10)
@@ -34,17 +34,17 @@ def sample(device_slug: str, index: int, timezone: str) -> dict:
         "gateway_version": "simulator-0.1.0",
         "gateway_boot_id": str(uuid.uuid4()),
         "source": "simulator",
-        "register_map_version": "prime-v1",
-        "decoder_version": "prime-v1",
+        "register_map_version": "prime-v2",
+        "decoder_version": "prime-v2-apparent-load",
         "metrics": {
             "pv_voltage_v": round(pv_voltage, 1),
             "pv_current_a": round(pv_current, 1),
             "pv_power_w": round(pv_power, 1),
             "battery_voltage_v": 26.8,
             "ac_output_voltage_v": 220,
-            "ac_output_current_a": round(output_power / 220, 1),
-            "ac_output_power_w": round(output_power, 1),
-            "load_percent": round(output_power / 10, 1),
+            "ac_output_current_a": round(output_load_va / 220, 1),
+            "ac_output_power_w": round(output_load_va, 1),
+            "load_percent": round(output_load_va / 10, 1),
             "inverter_temperature_c": 37,
         },
         "raw_registers": {
@@ -74,7 +74,7 @@ def main() -> None:
             result = client.send_batch([payload])
             print(
                 f"{payload['recorded_at']} | PV {payload['metrics']['pv_power_w']:.1f} W | "
-                f"OUT {payload['metrics']['ac_output_power_w']:.1f} W | {result}"
+                f"LOAD {payload['metrics']['ac_output_power_w']:.1f} VA(est) | {result}"
             )
             time.sleep(args.interval)
     finally:

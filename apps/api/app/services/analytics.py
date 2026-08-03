@@ -12,8 +12,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.db.models import Device, InverterTelemetry
 
-POWER_FIELDS = ("pv_power_w", "ac_output_power_w")
-
 
 def as_utc(value: datetime) -> datetime:
     if value.tzinfo is None:
@@ -67,37 +65,6 @@ def integrate_metric(
         end_value = left_value + (right_value - left_value) * end_ratio
         energy_wh += ((start_value + end_value) / 2) * clipped_seconds / 3600
         valid_seconds += clipped_seconds
-    return energy_wh, valid_seconds
-
-
-def integrate_surplus(
-    samples: list[InverterTelemetry],
-    window_start: datetime,
-    window_end: datetime,
-    max_gap_seconds: int,
-) -> tuple[float, float]:
-    energy_wh = 0.0
-    valid_seconds = 0.0
-    ordered = sorted(samples, key=lambda item: as_utc(item.recorded_at))
-    start = as_utc(window_start)
-    end = as_utc(window_end)
-    for left, right in zip(ordered, ordered[1:], strict=False):
-        if not all(
-            metric_is_valid(item, field) for item in (left, right) for field in POWER_FIELDS
-        ):
-            continue
-        left_at, right_at = as_utc(left.recorded_at), as_utc(right.recorded_at)
-        delta = (right_at - left_at).total_seconds()
-        if delta <= 0 or delta > max_gap_seconds:
-            continue
-        clipped_start, clipped_end = max(left_at, start), min(right_at, end)
-        seconds = (clipped_end - clipped_start).total_seconds()
-        if seconds <= 0:
-            continue
-        left_surplus = max(float(left.pv_power_w) - float(left.ac_output_power_w), 0)
-        right_surplus = max(float(right.pv_power_w) - float(right.ac_output_power_w), 0)
-        energy_wh += ((left_surplus + right_surplus) / 2) * seconds / 3600
-        valid_seconds += seconds
     return energy_wh, valid_seconds
 
 
@@ -171,11 +138,10 @@ async def build_daily_summary(session: AsyncSession, device: Device, local_date:
     pv_wh, pv_seconds = integrate_metric(
         samples, "pv_power_w", start, end, settings.max_integration_gap_seconds
     )
-    ac_wh, ac_seconds = integrate_metric(
+    # Kolom lama tetap dipakai agar database existing tidak memerlukan migrasi.
+    # Pengujian lapangan menunjukkan 0x3005 adalah estimasi beban semu, bukan watt aktif.
+    ac_load_vah, ac_load_seconds = integrate_metric(
         samples, "ac_output_power_w", start, end, settings.max_integration_gap_seconds
-    )
-    surplus_wh, surplus_seconds = integrate_surplus(
-        samples, start, end, settings.max_integration_gap_seconds
     )
     expected_seconds = max((end - start).total_seconds(), 1)
     pv_values = [float(item.pv_power_w) for item in visible if metric_is_valid(item, "pv_power_w")]
@@ -211,13 +177,16 @@ async def build_daily_summary(session: AsyncSession, device: Device, local_date:
         "date": local_date.isoformat(),
         "timezone": device.timezone,
         "pv_energy_kwh": round(pv_wh / 1000, 4),
-        "ac_output_energy_kwh": round(ac_wh / 1000, 4),
-        "estimated_surplus_kwh": round(surplus_wh / 1000, 4),
-        "equivalent_saving_idr": round(ac_wh / 1000 * device.tariff_idr_per_kwh),
+        "ac_load_estimate_kvah": round(ac_load_vah / 1000, 4),
+        "ac_output_energy_kwh": None,
+        "estimated_surplus_kwh": None,
+        "equivalent_saving_idr": round(pv_wh / 1000 * device.tariff_idr_per_kwh),
         "peak_pv_raw_w": max(pv_values, default=None),
         "peak_pv_1m_avg_w": minute_peak(visible, "pv_power_w"),
-        "peak_output_raw_w": max(ac_values, default=None),
-        "peak_output_1m_avg_w": minute_peak(visible, "ac_output_power_w"),
+        "peak_ac_load_estimate_raw_va": max(ac_values, default=None),
+        "peak_ac_load_estimate_1m_avg_va": minute_peak(visible, "ac_output_power_w"),
+        "peak_output_raw_w": None,
+        "peak_output_1m_avg_w": None,
         "max_temperature_c": max(temperature_values, default=None),
         "min_battery_voltage_v": min(battery_values, default=None),
         "max_battery_voltage_v": max(battery_values, default=None),
@@ -229,8 +198,11 @@ async def build_daily_summary(session: AsyncSession, device: Device, local_date:
         "sample_count": len(visible),
         "invalid_sample_count": sum(bool(item.quality_flags) for item in visible),
         "pv_coverage_percent": round(min(pv_seconds / expected_seconds * 100, 100), 2),
-        "ac_coverage_percent": round(min(ac_seconds / expected_seconds * 100, 100), 2),
-        "surplus_coverage_percent": round(min(surplus_seconds / expected_seconds * 100, 100), 2),
+        "ac_load_coverage_percent": round(
+            min(ac_load_seconds / expected_seconds * 100, 100), 2
+        ),
+        "ac_coverage_percent": round(min(ac_load_seconds / expected_seconds * 100, 100), 2),
+        "surplus_coverage_percent": None,
         "first_sample_at": as_utc(visible[0].recorded_at).isoformat() if visible else None,
         "last_sample_at": as_utc(visible[-1].recorded_at).isoformat() if visible else None,
         "gaps": gaps,
@@ -253,15 +225,16 @@ async def build_monthly_summary(
     best = max(available, key=lambda item: item["pv_energy_kwh"], default=None)
     lowest = min(available, key=lambda item: item["pv_energy_kwh"], default=None)
     total_pv = sum(item["pv_energy_kwh"] for item in available)
-    total_ac = sum(item["ac_output_energy_kwh"] for item in available)
+    total_ac_load = sum(item["ac_load_estimate_kvah"] for item in available)
     return {
         "month": f"{year:04d}-{month:02d}",
         "timezone": device.timezone,
         "pv_energy_kwh": round(total_pv, 3),
-        "ac_output_energy_kwh": round(total_ac, 3),
-        "estimated_surplus_kwh": round(sum(item["estimated_surplus_kwh"] for item in available), 3),
+        "ac_load_estimate_kvah": round(total_ac_load, 3),
+        "ac_output_energy_kwh": None,
+        "estimated_surplus_kwh": None,
         "average_daily_pv_kwh": round(total_pv / len(available), 3) if available else 0,
-        "equivalent_saving_idr": round(total_ac * device.tariff_idr_per_kwh),
+        "equivalent_saving_idr": round(total_pv * device.tariff_idr_per_kwh),
         "best_day": best,
         "lowest_day": lowest,
         "days_with_data": len(available),

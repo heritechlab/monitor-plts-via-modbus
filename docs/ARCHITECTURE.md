@@ -29,4 +29,6 @@ database, serta dashboard dipindahkan ke VPS tanpa perubahan model data.
 - Metrics adalah hasil decode dengan `register_map_version` dan `decoder_version`.
 - `recorded_at` adalah waktu pengukuran; `received_at` adalah waktu penerimaan API.
 - `sample_id` menjamin resend aman dan idempotent.
-
+- Field database lama `ac_output_power_w` menyimpan nilai `0x3005`, tetapi
+  semantiknya sejak `prime-v2` adalah estimasi beban semu (VA), bukan watt aktif.
+  Nama field dipertahankan agar database SQLite existing tidak memerlukan migrasi.

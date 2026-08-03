@@ -17,7 +17,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { MetricCard } from "@/components/metric-card";
 import { PowerChart } from "@/components/power-chart";
 import { apiGet } from "@/lib/api";
-import { dateTime, energy, localDateInput, number, power } from "@/lib/format";
+import {
+  apparentEnergy,
+  apparentPower,
+  dateTime,
+  localDateInput,
+  number,
+  power,
+} from "@/lib/format";
 import type { DailySummary, HistoryResponse, LatestResponse } from "@/lib/types";
 
 export function DashboardClient({ deviceSlug }: { deviceSlug: string }) {
@@ -68,13 +75,11 @@ export function DashboardClient({ deviceSlug }: { deviceSlug: string }) {
 
   const metrics = latest?.telemetry?.metrics;
   const pv = power(metrics?.pv_power_w);
-  const output = power(metrics?.ac_output_power_w);
-  const surplusValue = Math.max((metrics?.pv_power_w ?? 0) - (metrics?.ac_output_power_w ?? 0), 0);
-  const surplus = power(surplusValue);
+  const output = apparentPower(metrics?.ac_output_power_w);
   const cards = useMemo(
     () => [
       { label: "Daya PV", ...pv, caption: "Tegangan × arus PV", icon: SunMedium },
-      { label: "Output AC", ...output, caption: "Daya ke beban", icon: HousePlug },
+      { label: "Beban AC estimasi", ...output, caption: "Register inverter • bukan watt aktif", icon: HousePlug },
       { label: "Produksi hari ini", value: number(daily?.pv_energy_kwh, 3), unit: "kWh", caption: `Cakupan ${number(daily?.pv_coverage_percent, 0)}%`, icon: Zap },
       { label: "Tegangan baterai", value: number(metrics?.battery_voltage_v, 1), unit: "V", caption: "Dari inverter", icon: BatteryMedium },
       { label: "Tegangan PV", value: number(metrics?.pv_voltage_v, 1), unit: "V", icon: Bolt },
@@ -82,9 +87,8 @@ export function DashboardClient({ deviceSlug }: { deviceSlug: string }) {
       { label: "Tegangan AC", value: number(metrics?.ac_output_voltage_v, 1), unit: "V", icon: CircuitBoard },
       { label: "Beban inverter", value: number(metrics?.load_percent, 0), unit: "%", icon: Gauge },
       { label: "Suhu inverter", value: number(metrics?.inverter_temperature_c, 0), unit: "°C", icon: Thermometer },
-      { label: "Estimasi selisih", ...surplus, caption: "Bukan daya charge baterai", icon: SunMedium },
     ],
-    [daily, metrics, output, pv, surplus],
+    [daily, metrics, output, pv],
   );
 
   return (
@@ -111,13 +115,13 @@ export function DashboardClient({ deviceSlug }: { deviceSlug: string }) {
         <article className="panel chart-panel">
           <div className="panel-title-row">
             <div><h2>Kurva daya</h2><span className="panel-note">6 jam terakhir • rata-rata 5 menit</span></div>
-            <div className="status-pill"><span style={{ color: "var(--green)" }}>● PV</span><span style={{ color: "var(--blue)" }}>● Output</span></div>
+            <div className="status-pill"><span style={{ color: "var(--green)" }}>● PV (W)</span><span style={{ color: "var(--blue)" }}>● Beban estimasi (VA)</span></div>
           </div>
           <PowerChart points={history?.points ?? []} />
         </article>
 
         <article className="panel">
-          <div className="panel-title-row"><h2>Aliran energi</h2><span className="panel-note">Estimasi</span></div>
+          <div className="panel-title-row"><h2>Aliran daya</h2><span className="panel-note">Beban inverter adalah estimasi VA</span></div>
           <div className="energy-flow">
             <div className="flow-node"><div className="flow-node-icon"><SunMedium size={19} /></div><strong>{pv.value} {pv.unit}</strong><span>Panel PV</span></div>
             <div className="flow-line" />
@@ -126,8 +130,8 @@ export function DashboardClient({ deviceSlug }: { deviceSlug: string }) {
             <div className="flow-node"><div className="flow-node-icon"><HousePlug size={19} /></div><strong>{output.value} {output.unit}</strong><span>Beban AC</span></div>
           </div>
           <div className="grid summary-grid" style={{ marginTop: 14 }}>
-            <div className="summary-item"><span>Output hari ini</span><strong>{energy(daily?.ac_output_energy_kwh)}</strong></div>
-            <div className="summary-item"><span>Estimasi selisih</span><strong>{energy(daily?.estimated_surplus_kwh)}</strong></div>
+            <div className="summary-item"><span>Beban semu hari ini</span><strong>{apparentEnergy(daily?.ac_load_estimate_kvah)}</strong></div>
+            <div className="summary-item"><span>Daya aktif</span><strong className="warning">Butuh meter eksternal</strong></div>
             <div className="summary-item"><span>Antrean lokal</span><strong>{number(latest?.gateway.queue_depth, 0)}</strong></div>
             <div className="summary-item"><span>Serial</span><strong className={latest?.gateway.serial_status === "ok" ? "good" : "warning"}>{latest?.gateway.serial_status ?? "—"}</strong></div>
           </div>

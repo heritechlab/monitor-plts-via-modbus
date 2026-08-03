@@ -2,7 +2,7 @@ from typing import Any
 
 START_ADDRESS = 0x3000
 EXPECTED_REGISTER_COUNT = 32
-DECODER_VERSION = "prime-v1"
+DECODER_VERSION = "prime-v2-apparent-load"
 
 
 def decode_registers(registers: list[int]) -> tuple[dict[str, float], dict[str, int]]:
@@ -19,6 +19,9 @@ def decode_registers(registers: list[int]) -> tuple[dict[str, float], dict[str, 
         "battery_voltage_v": registers[0x02] / 10,
         "ac_output_current_a": registers[0x03] / 10,
         "load_percent": float(registers[0x04]),
+        # Nama field dipertahankan untuk kompatibilitas database/API existing.
+        # Validasi lapangan menunjukkan 0x3005 mengikuti load% dan mendekati VA,
+        # bukan pengukuran watt aktif dari energy meter.
         "ac_output_power_w": float(registers[0x05]),
         "inverter_temperature_c": float(registers[0x09]),
         "pv_current_a": registers[0x10] / 10,

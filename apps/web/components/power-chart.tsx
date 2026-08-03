@@ -46,8 +46,8 @@ export function PowerChart({ points }: { points: HistoryPoint[] }) {
           <Tooltip
             labelFormatter={(value) => timeOnly(String(value))}
             formatter={(value, name) => [
-              `${number(Number(value), 1)} W`,
-              name === "pv_power_w" ? "PV" : "Output AC",
+              `${number(Number(value), 1)} ${name === "pv_power_w" ? "W" : "VA"}`,
+              name === "pv_power_w" ? "PV" : "Beban AC estimasi",
             ]}
             contentStyle={{
               border: "1px solid rgba(184,235,201,.12)",
@@ -78,4 +78,3 @@ export function PowerChart({ points }: { points: HistoryPoint[] }) {
     </div>
   );
 }
-

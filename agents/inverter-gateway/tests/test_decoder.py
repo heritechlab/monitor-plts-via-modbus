@@ -1,5 +1,4 @@
 import pytest
-
 from decoder import decode_registers
 
 
@@ -16,6 +15,7 @@ def test_decode_confirmed_registers() -> None:
     metrics, raw = decode_registers(registers)
     assert metrics["ac_output_voltage_v"] == 217.5
     assert metrics["battery_voltage_v"] == 27.2
+    assert metrics["ac_output_power_w"] == 240
     assert metrics["pv_power_w"] == pytest.approx(974.78)
     assert len(raw) == 32
 

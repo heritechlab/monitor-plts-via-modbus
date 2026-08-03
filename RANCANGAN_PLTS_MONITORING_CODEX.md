@@ -1,6 +1,13 @@
 # SPESIFIKASI IMPLEMENTASI
 # SISTEM MONITORING PLTS PRIME — DEV LAN → PRODUCTION INTERNET
 
+> **Koreksi validasi lapangan (2026-08-03):** register `0x3005` mengikuti
+> persentase beban/kapasitas nominal dan mendekati VA, bukan watt aktif smart
+> plug. Referensi lama yang menyebut `ac_output_power_w`, output kWh, atau
+> estimated surplus dipertahankan sebagai riwayat rancangan dan telah digantikan
+> oleh semantik `prime-v2`: beban AC estimasi dalam VA/kVAh. Surplus W−VA tidak
+> dihitung; watt/kWh aktif memerlukan meter eksternal.
+
 Dokumen ini adalah instruksi implementasi lengkap untuk Codex. Bangun proyek sampai dapat dijalankan, bukan hanya membuat scaffolding.
 
 ======================================================================
@@ -68,7 +75,7 @@ Register yang sudah terkonfirmasi:
 | 0x3002 | Tegangan baterai dari inverter | raw / 10 V |
 | 0x3003 | Arus output AC | raw / 10 A |
 | 0x3004 | Persentase beban | raw % |
-| 0x3005 | Daya output AC | raw W |
+| 0x3005 | Estimasi beban semu inverter | raw VA (estimasi) |
 | 0x3009 | Suhu inverter | raw °C |
 | 0x3010 | Arus PV | raw / 10 A |
 | 0x3012 | Tegangan PV | raw / 10 V |

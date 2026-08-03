@@ -144,7 +144,7 @@ def build_payload(
         "gateway_version": config.gateway_version,
         "gateway_boot_id": str(state.boot_id),
         "source": "usb-rs485-laptop",
-        "register_map_version": "prime-v1",
+        "register_map_version": "prime-v2",
         "decoder_version": DECODER_VERSION,
         "metrics": metrics,
         "raw_registers": raw,
@@ -271,7 +271,8 @@ def run() -> int:
                     )
                 metrics = payload["metrics"]
                 LOGGER.info(
-                    "PV %.1f V %.1f A %.1f W | BAT %.1f V | OUT %.1f V %.1f A %.0f W %.0f%% "
+                    "PV %.1f V %.1f A %.1f W | BAT %.1f V | OUT %.1f V %.1f A | "
+                    "LOAD %.0f VA(est) %.0f%% "
                     "| TEMP %.0f C | QUEUE %s",
                     metrics["pv_voltage_v"],
                     metrics["pv_current_a"],

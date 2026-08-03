@@ -27,9 +27,9 @@ export function MonthlyClient({ deviceSlug }: { deviceSlug: string }) {
   }, [load]);
   const cards = [
     { label: "Produksi bulan", value: number(data?.pv_energy_kwh, 2), unit: "kWh", icon: SunMedium },
-    { label: "Output bulan", value: number(data?.ac_output_energy_kwh, 2), unit: "kWh", icon: BarChart3 },
+    { label: "Beban AC estimasi", value: number(data?.ac_load_estimate_kvah, 2), unit: "kVAh", caption: "Bukan energi aktif", icon: BarChart3 },
     { label: "Rata-rata harian", value: number(data?.average_daily_pv_kwh, 2), unit: "kWh", icon: CalendarDays },
-    { label: "Nilai ekuivalen", value: currency(data?.equivalent_saving_idr), unit: "", caption: "Bukan audit tagihan PLN", icon: Coins },
+    { label: "Nilai produksi PV", value: currency(data?.equivalent_saving_idr), unit: "", caption: "Estimasi dari energi PV • bukan audit PLN", icon: Coins },
   ];
   return (
     <div>
