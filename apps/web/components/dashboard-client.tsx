@@ -48,11 +48,13 @@ export function DashboardClient({ deviceSlug }: { deviceSlug: string }) {
     const [dailyResult, historyResult] = await Promise.all([
       apiGet<DailySummary>(
         `/api/v1/devices/${deviceSlug}/analytics/daily?date=${localDateInput(now)}`,
+        { cacheTtlSeconds: 30 },
       ),
       apiGet<HistoryResponse>(
         `/api/v1/devices/${deviceSlug}/telemetry?from=${encodeURIComponent(from.toISOString())}` +
           `&to=${encodeURIComponent(now.toISOString())}&resolution=5m` +
           "&fields=pv_power_w,ac_output_power_w",
+        { cacheTtlSeconds: 30 },
       ),
     ]);
     setDaily(dailyResult);

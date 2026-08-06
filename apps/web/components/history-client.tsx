@@ -10,9 +10,41 @@ import {
   historyRanges,
   type HistoryRangeKey,
 } from "@/lib/history-range";
-import type { HistoryResponse } from "@/lib/types";
+import type { HistoryPoint, HistoryResponse } from "@/lib/types";
 
 const PAGE_SIZE_OPTIONS = [50, 100];
+
+type SortKey = "recorded_at" | "pv_power_w" | "ac_output_power_w" | "battery_voltage_v" | "inverter_temperature_c";
+type SortDirection = "asc" | "desc";
+
+interface SortHeaderProps {
+  label: string;
+  targetKey: SortKey;
+  currentKey: SortKey;
+  direction: SortDirection;
+  onSort: (key: SortKey) => void;
+}
+
+function SortHeader({ label, targetKey, currentKey, direction, onSort }: SortHeaderProps) {
+  const active = currentKey === targetKey;
+  return (
+    <button
+      type="button"
+      onClick={() => onSort(targetKey)}
+      style={{
+        background: "none",
+        border: "none",
+        color: "inherit",
+        cursor: "pointer",
+        font: "inherit",
+        padding: 0,
+      }}
+    >
+      {label}
+      {active && (direction === "asc" ? " ↑" : " ↓")}
+    </button>
+  );
+}
 
 export function HistoryClient({ deviceSlug }: { deviceSlug: string }) {
   const today = localDateInput();
@@ -23,6 +55,8 @@ export function HistoryClient({ deviceSlug }: { deviceSlug: string }) {
   const [loading, setLoading] = useState(true);
   const [pageSize, setPageSize] = useState(50);
   const [page, setPage] = useState(0);
+  const [sortKey, setSortKey] = useState<SortKey>("recorded_at");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
 
   const load = useCallback(async (signal: AbortSignal) => {
     setLoading(true);
@@ -33,10 +67,10 @@ export function HistoryClient({ deviceSlug }: { deviceSlug: string }) {
       const selected = historyRanges[range];
       const { start, end } = buildHistoryWindow(selectedDate, range);
       setData(
-        await apiGet(
+        await apiGet<HistoryResponse>(
           `/api/v1/devices/${deviceSlug}/telemetry?from=${encodeURIComponent(start.toISOString())}` +
             `&to=${encodeURIComponent(end.toISOString())}&resolution=${selected.resolution}`,
-          signal,
+          { signal, cacheTtlSeconds: 30 },
         ),
       );
       setPage(0);
@@ -57,22 +91,48 @@ export function HistoryClient({ deviceSlug }: { deviceSlug: string }) {
     };
   }, [load]);
 
-  const displayPoints = useMemo(
-    () => [...(data?.points ?? [])].sort(
-      (left, right) => Date.parse(right.recorded_at) - Date.parse(left.recorded_at),
-    ),
-    [data],
-  );
+  const displayPoints = useMemo(() => data?.points ?? [], [data]);
 
-  const totalPoints = displayPoints.length;
+  const sortedPoints = useMemo(() => {
+    const points = [...displayPoints];
+    points.sort((left: HistoryPoint, right: HistoryPoint) => {
+      let leftValue: number;
+      let rightValue: number;
+      if (sortKey === "recorded_at") {
+        leftValue = Date.parse(left.recorded_at);
+        rightValue = Date.parse(right.recorded_at);
+      } else {
+        leftValue = left[sortKey] ?? -Infinity;
+        rightValue = right[sortKey] ?? -Infinity;
+      }
+      if (Number.isNaN(leftValue)) leftValue = -Infinity;
+      if (Number.isNaN(rightValue)) rightValue = -Infinity;
+      if (leftValue === rightValue) return 0;
+      const order = sortDirection === "asc" ? 1 : -1;
+      return (leftValue < rightValue ? -1 : 1) * order;
+    });
+    return points;
+  }, [displayPoints, sortKey, sortDirection]);
+
+  const totalPoints = sortedPoints.length;
   const totalPages = Math.max(1, Math.ceil(totalPoints / pageSize));
   const safePage = Math.min(page, totalPages - 1);
   const startIndex = safePage * pageSize;
   const endIndex = Math.min(startIndex + pageSize, totalPoints);
   const paginatedPoints = useMemo(
-    () => displayPoints.slice(startIndex, endIndex),
-    [displayPoints, startIndex, endIndex],
+    () => sortedPoints.slice(startIndex, endIndex),
+    [sortedPoints, startIndex, endIndex],
   );
+
+  const handleSort = useCallback((key: SortKey) => {
+    setPage(0);
+    if (sortKey === key) {
+      setSortDirection((previous) => (previous === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDirection("desc");
+    }
+  }, [sortKey]);
 
   return (
     <div>
@@ -121,7 +181,7 @@ export function HistoryClient({ deviceSlug }: { deviceSlug: string }) {
               : `${number(totalPoints, 0)} titik`}
           </span>
         </div>
-        <div className="table-wrap"><table><thead><tr><th>Waktu</th><th>PV</th><th>Beban estimasi</th><th>Baterai</th><th>Beban</th><th>Suhu</th></tr></thead><tbody>
+        <div className="table-wrap"><table><thead><tr><th><SortHeader label="Waktu" targetKey="recorded_at" currentKey={sortKey} direction={sortDirection} onSort={handleSort} /></th><th><SortHeader label="PV" targetKey="pv_power_w" currentKey={sortKey} direction={sortDirection} onSort={handleSort} /></th><th><SortHeader label="Beban estimasi" targetKey="ac_output_power_w" currentKey={sortKey} direction={sortDirection} onSort={handleSort} /></th><th><SortHeader label="Baterai" targetKey="battery_voltage_v" currentKey={sortKey} direction={sortDirection} onSort={handleSort} /></th><th>Beban</th><th><SortHeader label="Suhu" targetKey="inverter_temperature_c" currentKey={sortKey} direction={sortDirection} onSort={handleSort} /></th></tr></thead><tbody>
           {paginatedPoints.map((point) => <tr key={point.recorded_at}><td>{dateTime(point.recorded_at)}</td><td>{number(point.pv_power_w, 1)} W</td><td>{number(point.ac_output_power_w, 1)} VA</td><td>{number(point.battery_voltage_v, 1)} V</td><td>{number(point.load_percent, 0)}%</td><td>{number(point.inverter_temperature_c, 0)} °C</td></tr>)}
           {!loading && !error && paginatedPoints.length === 0 && <tr><td className="table-empty" colSpan={6}>Belum ada data pada rentang ini.</td></tr>}
         </tbody></table></div>

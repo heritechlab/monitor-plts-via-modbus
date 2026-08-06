@@ -14,7 +14,7 @@ export function DailyClient({ deviceSlug }: { deviceSlug: string }) {
   const [error, setError] = useState<string | null>(null);
   const load = useCallback(async () => {
     try {
-      setData(await apiGet(`/api/v1/devices/${deviceSlug}/analytics/daily?date=${date}`));
+      setData(await apiGet(`/api/v1/devices/${deviceSlug}/analytics/daily?date=${date}`, { cacheTtlSeconds: 60 }));
       setError(null);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Gagal mengambil ringkasan");

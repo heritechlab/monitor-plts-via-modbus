@@ -84,7 +84,7 @@ export function SettingsClient({ deviceSlug }: { deviceSlug: string }) {
       setData(
         await apiGet<RegisterAnalysisResponse>(
           `/api/v1/devices/${deviceSlug}/register-analysis?hours=${hours}`,
-          signal,
+          { signal, cacheTtlSeconds: 60 },
         ),
       );
     } catch (reason) {
