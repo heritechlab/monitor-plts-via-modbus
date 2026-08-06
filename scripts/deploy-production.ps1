@@ -108,9 +108,10 @@ function Invoke-AlembicMigration() {
     Push-Location $ApiDir
     try {
         if ($DbUrl -and $DbUrl.StartsWith("sqlite")) {
-            $CheckScript = @"
+            $CheckScript = @'
 import sqlite3
-url = r"$DbUrl"
+import sys
+url = sys.argv[1]
 url = url.replace("sqlite+aiosqlite:///", "").replace("sqlite:///", "")
 conn = sqlite3.connect(url)
 cur = conn.cursor()
@@ -120,15 +121,23 @@ if cur.fetchone()[0]:
     print(cur.fetchone()[0])
 else:
     print(0)
-"@
-            $VersionCount = & $ApiVenv -c $CheckScript
+'@
+            $TempCheck = Join-Path $env:TEMP "check_alembic_$([guid]::NewGuid().ToString()).py"
+            Set-Content -LiteralPath $TempCheck -Value $CheckScript -Encoding utf8
+            try {
+                $VersionCount = & $ApiVenv $TempCheck $DbUrl
+            } finally {
+                Remove-Item -LiteralPath $TempCheck -ErrorAction SilentlyContinue
+            }
             if ($VersionCount -eq "0") {
                 Write-Log "Database SQLite belum memiliki alembic_version, stamp ke head..."
                 & $ApiVenv -m alembic stamp head
+                if (-not $?) { throw "Alembic stamp gagal" }
             }
         }
         Write-Log "Jalankan database migration..."
         & $ApiVenv -m alembic upgrade head
+        if (-not $?) { throw "Alembic upgrade head gagal" }
     } finally {
         Pop-Location
     }
