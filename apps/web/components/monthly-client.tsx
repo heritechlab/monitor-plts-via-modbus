@@ -15,7 +15,7 @@ export function MonthlyClient({ deviceSlug }: { deviceSlug: string }) {
   const [error, setError] = useState<string | null>(null);
   const load = useCallback(async () => {
     try {
-      setData(await apiGet(`/api/v1/devices/${deviceSlug}/analytics/monthly?month=${month}`));
+      setData(await apiGet(`/api/v1/devices/${deviceSlug}/analytics/monthly?month=${month}`, { cacheTtlSeconds: 300 }));
       setError(null);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Gagal mengambil data bulanan");
