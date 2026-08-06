@@ -12,6 +12,8 @@ import {
 } from "@/lib/history-range";
 import type { HistoryResponse } from "@/lib/types";
 
+const PAGE_SIZE_OPTIONS = [50, 100];
+
 export function HistoryClient({ deviceSlug }: { deviceSlug: string }) {
   const today = localDateInput();
   const [selectedDate, setSelectedDate] = useState(today);
@@ -19,6 +21,8 @@ export function HistoryClient({ deviceSlug }: { deviceSlug: string }) {
   const [data, setData] = useState<HistoryResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pageSize, setPageSize] = useState(50);
+  const [page, setPage] = useState(0);
 
   const load = useCallback(async (signal: AbortSignal) => {
     setLoading(true);
@@ -35,6 +39,7 @@ export function HistoryClient({ deviceSlug }: { deviceSlug: string }) {
           signal,
         ),
       );
+      setPage(0);
     } catch (reason) {
       if (reason instanceof DOMException && reason.name === "AbortError") return;
       setError(reason instanceof Error ? reason.message : "Gagal mengambil data");
@@ -52,11 +57,21 @@ export function HistoryClient({ deviceSlug }: { deviceSlug: string }) {
     };
   }, [load]);
 
-  const latestPoints = useMemo(
-    () => [...(data?.points ?? [])]
-      .sort((left, right) => Date.parse(right.recorded_at) - Date.parse(left.recorded_at))
-      .slice(0, 20),
+  const displayPoints = useMemo(
+    () => [...(data?.points ?? [])].sort(
+      (left, right) => Date.parse(right.recorded_at) - Date.parse(left.recorded_at),
+    ),
     [data],
+  );
+
+  const totalPoints = displayPoints.length;
+  const totalPages = Math.max(1, Math.ceil(totalPoints / pageSize));
+  const safePage = Math.min(page, totalPages - 1);
+  const startIndex = safePage * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalPoints);
+  const paginatedPoints = useMemo(
+    () => displayPoints.slice(startIndex, endIndex),
+    [displayPoints, startIndex, endIndex],
   );
 
   return (
@@ -98,11 +113,59 @@ export function HistoryClient({ deviceSlug }: { deviceSlug: string }) {
         {error ? <div className="error-state">{error}</div> : loading ? <div className="empty">Memuat riwayat...</div> : <PowerChart points={data?.points ?? []} />}
       </article>
       <article className="panel section-gap">
-        <div className="panel-title-row"><h2>Data terbaru pada rentang</h2><span className="panel-note">{number(data?.points.length, 0)} titik</span></div>
+        <div className="panel-title-row">
+          <h2>Data pada rentang</h2>
+          <span className="panel-note">
+            {totalPoints > 0
+              ? `${startIndex + 1}–${endIndex} dari ${number(totalPoints, 0)} titik`
+              : `${number(totalPoints, 0)} titik`}
+          </span>
+        </div>
         <div className="table-wrap"><table><thead><tr><th>Waktu</th><th>PV</th><th>Beban estimasi</th><th>Baterai</th><th>Beban</th><th>Suhu</th></tr></thead><tbody>
-          {latestPoints.map((point) => <tr key={point.recorded_at}><td>{dateTime(point.recorded_at)}</td><td>{number(point.pv_power_w, 1)} W</td><td>{number(point.ac_output_power_w, 1)} VA</td><td>{number(point.battery_voltage_v, 1)} V</td><td>{number(point.load_percent, 0)}%</td><td>{number(point.inverter_temperature_c, 0)} °C</td></tr>)}
-          {!loading && !error && latestPoints.length === 0 && <tr><td className="table-empty" colSpan={6}>Belum ada data pada rentang ini.</td></tr>}
+          {paginatedPoints.map((point) => <tr key={point.recorded_at}><td>{dateTime(point.recorded_at)}</td><td>{number(point.pv_power_w, 1)} W</td><td>{number(point.ac_output_power_w, 1)} VA</td><td>{number(point.battery_voltage_v, 1)} V</td><td>{number(point.load_percent, 0)}%</td><td>{number(point.inverter_temperature_c, 0)} °C</td></tr>)}
+          {!loading && !error && paginatedPoints.length === 0 && <tr><td className="table-empty" colSpan={6}>Belum ada data pada rentang ini.</td></tr>}
         </tbody></table></div>
+        {totalPoints > 0 && (
+          <div className="history-filters" style={{ marginTop: 14 }}>
+            <div className="history-filter-group">
+              <span>Per halaman</span>
+              <div className="controls">
+                {PAGE_SIZE_OPTIONS.map((size) => (
+                  <button
+                    key={size}
+                    className={`control-button ${pageSize === size ? "active" : ""}`}
+                    type="button"
+                    aria-pressed={pageSize === size}
+                    onClick={() => { setPageSize(size); setPage(0); }}
+                  >
+                    {size}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="history-filter-group">
+              <span>Halaman {safePage + 1} dari {totalPages}</span>
+              <div className="controls">
+                <button
+                  className="control-button"
+                  type="button"
+                  disabled={safePage === 0}
+                  onClick={() => setPage((previous) => previous - 1)}
+                >
+                  Sebelumnya
+                </button>
+                <button
+                  className="control-button"
+                  type="button"
+                  disabled={safePage >= totalPages - 1}
+                  onClick={() => setPage((previous) => previous + 1)}
+                >
+                  Berikutnya
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </article>
     </div>
   );
