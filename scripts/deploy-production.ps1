@@ -52,7 +52,7 @@ function Write-Log($Message) {
     if (-not (Test-Path -LiteralPath $RuntimeDir)) {
         New-Item -ItemType Directory -Force -Path $RuntimeDir | Out-Null
     }
-    Add-Content -LiteralPath $LogFile -Value $Line -Encoding utf8
+    Add-Content -LiteralPath $LogFile -Value "$Line`r`n" -Encoding utf8 -NoNewline
 }
 
 function Get-EnvValue($Key) {
@@ -101,6 +101,54 @@ function Invoke-Backup() {
 
 function Test-CommandAvailable($Name) {
     return [bool](Get-Command $Name -ErrorAction SilentlyContinue)
+}
+
+function Invoke-AlembicMigration() {
+    $DbUrl = Get-EnvValue "DATABASE_URL"
+    Push-Location $ApiDir
+    try {
+        if ($DbUrl -and $DbUrl.StartsWith("sqlite")) {
+            $CheckScript = @"
+import sqlite3
+url = r"$DbUrl"
+url = url.replace("sqlite+aiosqlite:///", "").replace("sqlite:///", "")
+conn = sqlite3.connect(url)
+cur = conn.cursor()
+cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='alembic_version'")
+if cur.fetchone()[0]:
+    cur.execute("SELECT count(*) FROM alembic_version")
+    print(cur.fetchone()[0])
+else:
+    print(0)
+"@
+            $VersionCount = & $ApiVenv -c $CheckScript
+            if ($VersionCount -eq "0") {
+                Write-Log "Database SQLite belum memiliki alembic_version, stamp ke head..."
+                & $ApiVenv -m alembic stamp head
+            }
+        }
+        Write-Log "Jalankan database migration..."
+        & $ApiVenv -m alembic upgrade head
+    } finally {
+        Pop-Location
+    }
+}
+
+function Wait-ApiReady($Url = "http://127.0.0.1:8000", $TimeoutSeconds = 60) {
+    $Deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ((Get-Date) -lt $Deadline) {
+        try {
+            $Response = Invoke-RestMethod -Uri "$Url/health" -TimeoutSec 2 -ErrorAction Stop
+            if ($Response.status -eq "ok") {
+                Write-Log "API siap di $Url"
+                return
+            }
+        } catch {
+            # API belum siap, tunggu sebentar.
+        }
+        Start-Sleep -Seconds 2
+    }
+    throw "API tidak siap setelah $TimeoutSeconds detik"
 }
 
 # --- Pre-flight checks ---
@@ -174,13 +222,7 @@ if (Test-Path -LiteralPath $ApiVenv) {
     Write-Log "Update dependency API..."
     & $ApiVenv -m pip install -e "$ApiDir[dev]"
 
-    Write-Log "Jalankan database migration..."
-    Push-Location $ApiDir
-    try {
-        & $ApiVenv -m alembic upgrade head
-    } finally {
-        Pop-Location
-    }
+    Invoke-AlembicMigration
 } else {
     Write-Log "Virtual environment API belum ada. start-native.ps1 akan membuatnya saat start."
 }
@@ -225,6 +267,9 @@ $ApiKey = Get-EnvValue "DEVICE_API_KEY"
 $DeviceSlug = Get-EnvValue "DEVICE_SLUG"
 if (-not $ApiKey) { throw "DEVICE_API_KEY tidak ditemukan di .env" }
 if (-not $DeviceSlug) { $DeviceSlug = "prime-rumah-01" }
+
+Write-Log "Menunggu API siap..."
+Wait-ApiReady
 
 Write-Log "Jalankan smoke test..."
 & (Join-Path $PSScriptRoot "smoke-test.ps1") -ApiKey $ApiKey -DeviceSlug $DeviceSlug
