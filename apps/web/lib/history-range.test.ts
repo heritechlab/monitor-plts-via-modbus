@@ -31,4 +31,11 @@ describe("buildHistoryWindow", () => {
       "Tanggal mendatang belum dapat dipilih",
     );
   });
+
+  it("mendukung tahun berbeda untuk riwayat lampau", () => {
+    const pastYear = buildHistoryWindow("2025-12-25", "24h", now);
+
+    expect(pastYear.start.toISOString()).toBe("2025-12-24T17:00:00.000Z");
+    expect(pastYear.end.toISOString()).toBe("2025-12-25T16:59:59.999Z");
+  });
 });
