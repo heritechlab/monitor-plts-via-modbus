@@ -8,6 +8,7 @@ import {
   Database,
   Gauge,
   History,
+  Radio,
   Settings2,
   SunMedium,
 } from "lucide-react";
@@ -21,6 +22,7 @@ const links = [
   { href: "/daily", label: "Harian", icon: CalendarDays },
   { href: "/monthly", label: "Bulanan", icon: BarChart3 },
   { href: "/settings", label: "Register", icon: Binary },
+  { href: "/live-register", label: "Live", icon: Radio, desktopOnly: true },
   { href: "/data-quality", label: "Kualitas data", icon: Activity, desktopOnly: true },
   { href: "/devices", label: "Perangkat", icon: Settings2, desktopOnly: true },
 ];
