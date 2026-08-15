@@ -109,6 +109,50 @@ class InverterTelemetry(Base):
     sequence_number: Mapped[int | None] = mapped_column(BigInteger)
 
 
+class BmsTelemetry(Base):
+    __tablename__ = "bms_telemetry"
+    __table_args__ = (
+        Index("ix_bms_telemetry_device_recorded", "device_id", "recorded_at"),
+        Index("ix_bms_telemetry_device_received", "device_id", "received_at"),
+    )
+
+    id: Mapped[int] = mapped_column(BIGINT_PK, primary_key=True, autoincrement=True)
+    sample_id: Mapped[uuid.UUID] = mapped_column(Uuid, unique=True, nullable=False)
+    device_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("devices.id", ondelete="CASCADE"), nullable=False
+    )
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    received_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    cell_count: Mapped[int | None] = mapped_column(Integer)
+    cell_voltages_mv: Mapped[list[int]] = mapped_column(JSON_TYPE, default=list, nullable=False)
+    pack_voltage_v: Mapped[float | None] = mapped_column(Float)
+    pack_power_w: Mapped[float | None] = mapped_column(Float)
+    pack_current_a: Mapped[float | None] = mapped_column(Float)
+    temperature_1_c: Mapped[float | None] = mapped_column(Float)
+    temperature_2_c: Mapped[float | None] = mapped_column(Float)
+    soc_percent: Mapped[float | None] = mapped_column(Float)
+    remaining_capacity_ah: Mapped[float | None] = mapped_column(Float)
+    full_capacity_ah: Mapped[float | None] = mapped_column(Float)
+    cycle_count: Mapped[int | None] = mapped_column(Integer)
+    balance_current_a: Mapped[float | None] = mapped_column(Float)
+    alarm_flags: Mapped[int | None] = mapped_column(BigInteger)
+
+    raw_registers: Mapped[dict[str, int]] = mapped_column(JSON_TYPE, nullable=False)
+    register_map_version: Mapped[str] = mapped_column(
+        String(32), default="jk-bd6a24s8p-v1", nullable=False
+    )
+    decoder_version: Mapped[str | None] = mapped_column(String(32))
+    quality_flags: Mapped[list[str]] = mapped_column(JSON_TYPE, default=list, nullable=False)
+    quality_details: Mapped[dict[str, Any]] = mapped_column(JSON_TYPE, default=dict, nullable=False)
+    gateway_version: Mapped[str | None] = mapped_column(String(32))
+    gateway_boot_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+    source: Mapped[str] = mapped_column(String(64), default="usb-rs485-laptop", nullable=False)
+    sequence_number: Mapped[int | None] = mapped_column(BigInteger)
+
+
 class GatewayStatus(Base):
     __tablename__ = "gateway_status"
 

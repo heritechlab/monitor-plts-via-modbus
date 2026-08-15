@@ -116,6 +116,47 @@ export interface RegisterAnalysisItem {
   strongest_correlation: RegisterCorrelation | null;
 }
 
+export interface BmsMetrics {
+  cell_voltages_mv: number[];
+  pack_voltage_v: number | null;
+  pack_power_w: number | null;
+  pack_current_a: number | null;
+  temperature_1_c: number | null;
+  temperature_2_c: number | null;
+  soc_percent: number | null;
+  remaining_capacity_ah: number | null;
+  full_capacity_ah: number | null;
+  cycle_count: number | null;
+  balance_current_a: number | null;
+  alarm_flags: number | null;
+}
+
+export interface BmsLatestResponse {
+  device: { slug: string; name: string; timezone: string };
+  status: "online" | "degraded" | "offline";
+  telemetry_status: "online" | "degraded" | "offline";
+  gateway_age_seconds: number | null;
+  telemetry_age_seconds: number | null;
+  gateway: {
+    serial_status: string;
+    queue_depth: number | null;
+    last_contact_at: string | null;
+    last_serial_success_at: string | null;
+  };
+  telemetry: null | {
+    sample_id: string;
+    recorded_at: string;
+    received_at: string;
+    cell_count: number | null;
+    metrics: BmsMetrics;
+    quality_flags: string[];
+    raw_registers: Record<string, number>;
+    gateway_version: string | null;
+    source: string;
+  };
+  server_time: string;
+}
+
 export interface RegisterAnalysisResponse {
   device_slug: string;
   hours: number;

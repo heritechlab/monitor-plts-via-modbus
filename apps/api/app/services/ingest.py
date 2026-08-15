@@ -4,14 +4,20 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import Device, GatewayStatus, InverterTelemetry
-from app.schemas.telemetry import HeartbeatPayload, TelemetryPayload
+from app.db.models import BmsTelemetry, Device, GatewayStatus, InverterTelemetry
+from app.schemas.telemetry import BmsTelemetryPayload, HeartbeatPayload, TelemetryPayload
 from app.services.quality import evaluate_quality
 
 
 @dataclass
 class StoredSample:
     telemetry: InverterTelemetry
+    duplicate: bool
+
+
+@dataclass
+class StoredBmsSample:
+    telemetry: BmsTelemetry
     duplicate: bool
 
 
@@ -69,6 +75,58 @@ async def store_telemetry(
     )
     await session.flush()
     return StoredSample(telemetry, duplicate=False)
+
+
+async def store_bms_telemetry(
+    session: AsyncSession, device: Device, payload: BmsTelemetryPayload
+) -> StoredBmsSample:
+    existing = await session.scalar(
+        select(BmsTelemetry).where(BmsTelemetry.sample_id == payload.sample_id)
+    )
+    if existing is not None:
+        return StoredBmsSample(existing, duplicate=True)
+
+    now = datetime.now(UTC)
+    metrics = payload.metrics.model_dump()
+    cell_voltages_mv = metrics.pop("cell_voltages_mv")
+
+    telemetry = BmsTelemetry(
+        sample_id=payload.sample_id,
+        device_id=device.id,
+        recorded_at=payload.recorded_at.astimezone(UTC),
+        received_at=now,
+        cell_count=len(cell_voltages_mv),
+        cell_voltages_mv=cell_voltages_mv,
+        raw_registers=payload.raw_registers,
+        register_map_version=payload.register_map_version,
+        decoder_version=payload.decoder_version,
+        quality_flags=[],
+        quality_details={},
+        gateway_version=payload.gateway_version,
+        gateway_boot_id=payload.gateway_boot_id,
+        source=payload.source,
+        sequence_number=payload.sequence_number,
+        **metrics,
+    )
+    session.add(telemetry)
+    device.last_gateway_contact_at = now
+    if device.last_telemetry_recorded_at is None or _as_utc(
+        device.last_telemetry_recorded_at
+    ) < payload.recorded_at.astimezone(UTC):
+        device.last_telemetry_recorded_at = payload.recorded_at.astimezone(UTC)
+
+    await _touch_gateway_status(
+        session,
+        device,
+        now=now,
+        gateway_boot_id=payload.gateway_boot_id,
+        gateway_version=payload.gateway_version,
+        source=payload.source,
+        serial_status="ok",
+        last_serial_success_at=payload.recorded_at.astimezone(UTC),
+    )
+    await session.flush()
+    return StoredBmsSample(telemetry, duplicate=False)
 
 
 async def store_heartbeat(

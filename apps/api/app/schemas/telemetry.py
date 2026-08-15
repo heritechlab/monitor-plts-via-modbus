@@ -55,6 +55,28 @@ class TelemetryPayload(BaseModel):
         return value
 
 
+class BmsMetricsPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    cell_voltages_mv: list[int] = Field(min_length=1, max_length=32)
+    pack_voltage_v: float | None = None
+    pack_power_w: float | None = None
+    pack_current_a: float | None = None
+    temperature_1_c: float | None = None
+    temperature_2_c: float | None = None
+    soc_percent: float | None = None
+    remaining_capacity_ah: float | None = None
+    full_capacity_ah: float | None = None
+    cycle_count: int | None = None
+    balance_current_a: float | None = None
+    alarm_flags: int | None = None
+
+
+class BmsTelemetryPayload(TelemetryPayload):
+    register_map_version: str = Field(default="jk-bd6a24s8p-v1", max_length=32)
+    metrics: BmsMetricsPayload
+
+
 class BatchTelemetryPayload(BaseModel):
     # Validasi item dilakukan satu per satu agar satu payload rusak tidak
     # menggagalkan seluruh flush antrean.
