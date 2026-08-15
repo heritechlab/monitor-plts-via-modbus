@@ -16,7 +16,22 @@ branch_labels = None
 depends_on = None
 
 
+def _json_type() -> sa.types.TypeEngine:
+    # 0001_initial hardcodes postgresql.JSONB() because it was authored against a
+    # Postgres target and never actually executed on SQLite (production's real
+    # deployment only ever hit the empty-DB "stamp head" bypass in
+    # scripts/deploy-production.ps1, never real DDL). This migration IS the first to
+    # actually run on SQLite, so it must resolve the dialect-appropriate type itself
+    # rather than hardcode JSONB, matching what app/db/models.py's JSON_TYPE
+    # (JSON().with_variant(JSONB(), "postgresql")) resolves to at the ORM level.
+    bind = op.get_bind()
+    if bind.dialect.name == "postgresql":
+        return postgresql.JSONB(astext_type=sa.Text())
+    return sa.JSON()
+
+
 def upgrade() -> None:
+    json_type = _json_type()
     op.create_table(
         "bms_telemetry",
         sa.Column("id", sa.BigInteger(), autoincrement=True, nullable=False),
@@ -26,11 +41,11 @@ def upgrade() -> None:
         sa.Column(
             "received_at",
             sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
             nullable=False,
         ),
         sa.Column("cell_count", sa.Integer(), nullable=True),
-        sa.Column("cell_voltages_mv", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+        sa.Column("cell_voltages_mv", json_type, nullable=False),
         sa.Column("pack_voltage_v", sa.Float(), nullable=True),
         sa.Column("pack_power_w", sa.Float(), nullable=True),
         sa.Column("pack_current_a", sa.Float(), nullable=True),
@@ -42,11 +57,11 @@ def upgrade() -> None:
         sa.Column("cycle_count", sa.Integer(), nullable=True),
         sa.Column("balance_current_a", sa.Float(), nullable=True),
         sa.Column("alarm_flags", sa.BigInteger(), nullable=True),
-        sa.Column("raw_registers", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+        sa.Column("raw_registers", json_type, nullable=False),
         sa.Column("register_map_version", sa.String(length=32), nullable=False),
         sa.Column("decoder_version", sa.String(length=32), nullable=True),
-        sa.Column("quality_flags", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
-        sa.Column("quality_details", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+        sa.Column("quality_flags", json_type, nullable=False),
+        sa.Column("quality_details", json_type, nullable=False),
         sa.Column("gateway_version", sa.String(length=32), nullable=True),
         sa.Column("gateway_boot_id", sa.Uuid(), nullable=True),
         sa.Column("source", sa.String(length=64), nullable=False),
