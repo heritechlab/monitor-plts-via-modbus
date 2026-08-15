@@ -41,7 +41,24 @@ export function MonthlyClient({ deviceSlug }: { deviceSlug: string }) {
         <section className="grid metric-grid">{cards.map((card) => <MetricCard {...card} key={card.label} />)}</section>
         <article className="panel chart-panel section-gap">
           <div className="panel-title-row"><h2>Produksi per tanggal</h2><span className="panel-note">{data?.days_with_data ?? 0} hari dengan data</span></div>
-          {data?.days.length ? <div className="chart-wrap"><ResponsiveContainer width="100%" height="100%"><BarChart data={data.days} margin={{ top: 8, right: 4, left: -24, bottom: 0 }}><CartesianGrid stroke="rgba(184,235,201,.07)" vertical={false} /><XAxis dataKey="date" tickFormatter={(value) => value.slice(-2)} stroke="#65756b" tickLine={false} axisLine={false} fontSize={10} /><YAxis stroke="#65756b" tickLine={false} axisLine={false} fontSize={10} /><Tooltip formatter={(value) => [`${number(Number(value), 3)} kWh`, "Produksi PV"]} contentStyle={{ border: "1px solid rgba(184,235,201,.12)", borderRadius: 12, background: "#0c120f", fontSize: 11 }} /><Bar dataKey="pv_energy_kwh" fill="#7ef29a" radius={[5, 5, 0, 0]} /></BarChart></ResponsiveContainer></div> : <div className="empty">Belum ada data bulan ini.</div>}
+          {data?.days.length ? (
+            <div className="chart-wrap">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={data.days} margin={{ top: 8, right: 4, left: -24, bottom: 0 }}>
+                  <CartesianGrid stroke="var(--border)" vertical={false} />
+                  <XAxis dataKey="date" tickFormatter={(value) => value.slice(-2)} stroke="var(--muted)" tickLine={false} axisLine={false} fontSize={10} />
+                  <YAxis stroke="var(--muted)" tickLine={false} axisLine={false} fontSize={10} />
+                  <Tooltip
+                    formatter={(value) => [`${number(Number(value), 3)} kWh`, "Produksi PV"]}
+                    contentStyle={{ border: "1px solid var(--border)", borderRadius: 12, background: "var(--surface-raised)", fontSize: 11 }}
+                  />
+                  <Bar dataKey="pv_energy_kwh" fill="var(--green)" radius={[5, 5, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="empty">Belum ada data bulan ini.</div>
+          )}
         </article>
         <section className="grid two-column section-gap">
           <article className="panel"><div className="panel-title-row"><h2>Hari terbaik</h2></div><div className="summary-item"><span>{data?.best_day?.date ?? "—"}</span><strong>{energy(data?.best_day?.pv_energy_kwh)}</strong></div></article>

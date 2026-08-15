@@ -16,6 +16,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
+import { ThemeToggle } from "@/components/theme-toggle";
+
 const links = [
   { href: "/", label: "Ringkasan", icon: Gauge },
   { href: "/history", label: "Riwayat", icon: History },
@@ -59,6 +61,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </aside>
       <main className="main-content">{children}</main>
       <nav className="mobile-nav"><NavLinks mobile /></nav>
+      <ThemeToggle />
     </div>
   );
 }

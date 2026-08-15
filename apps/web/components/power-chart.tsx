@@ -22,22 +22,22 @@ export function PowerChart({ points }: { points: HistoryPoint[] }) {
         <ComposedChart data={points} margin={{ top: 8, right: 4, left: -24, bottom: 0 }}>
           <defs>
             <linearGradient id="pvFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#7ef29a" stopOpacity={0.3} />
-              <stop offset="95%" stopColor="#7ef29a" stopOpacity={0} />
+              <stop offset="5%" stopColor="var(--green)" stopOpacity={0.3} />
+              <stop offset="95%" stopColor="var(--green)" stopOpacity={0} />
             </linearGradient>
           </defs>
-          <CartesianGrid stroke="rgba(184,235,201,.07)" vertical={false} />
+          <CartesianGrid stroke="var(--border)" vertical={false} />
           <XAxis
             dataKey="recorded_at"
             tickFormatter={timeOnly}
-            stroke="#65756b"
+            stroke="var(--muted)"
             tickLine={false}
             axisLine={false}
             fontSize={10}
             minTickGap={36}
           />
           <YAxis
-            stroke="#65756b"
+            stroke="var(--muted)"
             tickLine={false}
             axisLine={false}
             fontSize={10}
@@ -50,16 +50,16 @@ export function PowerChart({ points }: { points: HistoryPoint[] }) {
               name === "pv_power_w" ? "PV" : "Beban AC estimasi",
             ]}
             contentStyle={{
-              border: "1px solid rgba(184,235,201,.12)",
+              border: "1px solid var(--border)",
               borderRadius: 12,
-              background: "#0c120f",
+              background: "var(--surface-raised)",
               fontSize: 11,
             }}
           />
           <Area
             type="monotone"
             dataKey="pv_power_w"
-            stroke="#7ef29a"
+            stroke="var(--green)"
             fill="url(#pvFill)"
             strokeWidth={2}
             dot={false}
@@ -68,7 +68,7 @@ export function PowerChart({ points }: { points: HistoryPoint[] }) {
           <Line
             type="monotone"
             dataKey="ac_output_power_w"
-            stroke="#70b8ff"
+            stroke="var(--blue)"
             strokeWidth={1.6}
             dot={false}
             isAnimationActive={false}

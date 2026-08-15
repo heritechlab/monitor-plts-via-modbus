@@ -234,17 +234,17 @@ export function LiveRegisterClient({ deviceSlug }: { deviceSlug: string }) {
           gap: 6px;
           padding: 6px 10px;
           border-radius: 999px;
-          border: 1px solid rgba(184, 235, 201, 0.12);
-          background: rgba(184, 235, 201, 0.04);
+          border: 1px solid var(--border);
+          background: color-mix(in srgb, var(--green) 4%, transparent);
           cursor: pointer;
           font-size: 12px;
           color: var(--muted);
           transition: background 0.15s, border-color 0.15s;
         }
         .register-chip.active {
-          background: rgba(126, 242, 154, 0.12);
-          border-color: rgba(126, 242, 154, 0.35);
-          color: var(--foreground);
+          background: color-mix(in srgb, var(--green) 12%, transparent);
+          border-color: color-mix(in srgb, var(--green) 35%, transparent);
+          color: var(--text);
         }
         .register-chip input {
           accent-color: var(--green);
