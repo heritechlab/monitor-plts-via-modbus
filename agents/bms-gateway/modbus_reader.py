@@ -132,6 +132,10 @@ class JkBmsModbusReader:
         self._serial.reset_input_buffer()
         self._serial.write(request)
         self._serial.flush()
+        # Jeda turnaround RS485 half-duplex untuk dongle CH340 ini — tanpa ini,
+        # pembacaan langsung setelah flush() gagal timeout meski device merespons
+        # (terbukti dari scan manual yang pakai jeda serupa dan selalu berhasil).
+        time.sleep(0.03)
 
         header = self._read_exact(3)
         slave, function, third = header
