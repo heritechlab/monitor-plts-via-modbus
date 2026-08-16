@@ -2,6 +2,7 @@
 
 import {
   Activity,
+  BatteryCharging,
   BatteryMedium,
   Bolt,
   CircuitBoard,
@@ -12,6 +13,7 @@ import {
   Thermometer,
   Zap,
 } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { MetricCard } from "@/components/metric-card";
@@ -25,13 +27,72 @@ import {
   number,
   power,
 } from "@/lib/format";
-import type { DailySummary, HistoryResponse, LatestResponse } from "@/lib/types";
+import type {
+  BmsDeviceSummary,
+  BmsLatestResponse,
+  DailySummary,
+  HistoryResponse,
+  LatestResponse,
+} from "@/lib/types";
+
+interface BmsPackSummary {
+  slug: string;
+  name: string;
+  socPercent: number | null;
+  packVoltageV: number | null;
+  status: "online" | "degraded" | "offline";
+}
+
+function useBmsPacks() {
+  const [packs, setPacks] = useState<BmsPackSummary[]>([]);
+
+  const load = useCallback(async () => {
+    try {
+      const { devices } = await apiGet<{ devices: BmsDeviceSummary[] }>("/api/v1/bms-devices", {
+        cacheTtlSeconds: 30,
+      });
+      const results = await Promise.all(
+        devices.map(async (device) => {
+          try {
+            const latest = await apiGet<BmsLatestResponse>(
+              `/api/v1/bms-devices/${device.slug}/latest`,
+            );
+            return {
+              slug: device.slug,
+              name: device.name,
+              socPercent: latest.telemetry?.metrics.soc_percent ?? null,
+              packVoltageV: latest.telemetry?.metrics.pack_voltage_v ?? null,
+              status: latest.telemetry_status,
+            };
+          } catch {
+            return { slug: device.slug, name: device.name, socPercent: null, packVoltageV: null, status: "offline" as const };
+          }
+        }),
+      );
+      setPacks(results);
+    } catch {
+      // Daftar BMS opsional — dashboard utama tetap jalan tanpa panel baterai.
+    }
+  }, []);
+
+  useEffect(() => {
+    const initialTimer = window.setTimeout(() => void load(), 0);
+    const timer = window.setInterval(() => void load(), 5000);
+    return () => {
+      window.clearTimeout(initialTimer);
+      window.clearInterval(timer);
+    };
+  }, [load]);
+
+  return packs;
+}
 
 export function DashboardClient({ deviceSlug }: { deviceSlug: string }) {
   const [latest, setLatest] = useState<LatestResponse | null>(null);
   const [daily, setDaily] = useState<DailySummary | null>(null);
   const [history, setHistory] = useState<HistoryResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const bmsPacks = useBmsPacks();
 
   const loadLatest = useCallback(async () => {
     try {
@@ -112,6 +173,27 @@ export function DashboardClient({ deviceSlug }: { deviceSlug: string }) {
       <section className="grid metric-grid">
         {cards.map((card) => <MetricCard {...card} key={card.label} />)}
       </section>
+
+      {bmsPacks.length > 0 && (
+        <section className="panel section-gap">
+          <div className="panel-title-row">
+            <h2>Status baterai (BMS)</h2>
+            <Link className="panel-note" href="/battery">Lihat detail sel →</Link>
+          </div>
+          <div className="grid metric-grid">
+            {bmsPacks.map((pack) => (
+              <MetricCard
+                caption={`${number(pack.packVoltageV, 1)} V • ${pack.status === "online" ? "online" : pack.status}`}
+                icon={BatteryCharging}
+                key={pack.slug}
+                label={pack.name}
+                unit="%"
+                value={number(pack.socPercent, 0)}
+              />
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="grid two-column section-gap">
         <article className="panel chart-panel">

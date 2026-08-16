@@ -1,6 +1,5 @@
-import { HistoryClient } from "@/components/history-client";
+import { HistoryTabs } from "@/components/history-tabs";
 
 export default function HistoryPage() {
-  return <HistoryClient deviceSlug={process.env.DEVICE_SLUG ?? "prime-rumah-01"} />;
+  return <HistoryTabs inverterDeviceSlug={process.env.DEVICE_SLUG ?? "prime-rumah-01"} />;
 }
-

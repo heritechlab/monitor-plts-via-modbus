@@ -3,6 +3,7 @@
 import {
   BatteryCharging,
   Gauge,
+  GitCompareArrows,
   Recycle,
   Thermometer,
   Zap,
@@ -145,18 +146,38 @@ function BatteryDevicePanel({ deviceSlug, deviceName }: { deviceSlug: string; de
     return [min - pad, max + pad];
   }, [cells]);
 
+  const cellDiff = useMemo(() => {
+    if (!cells.length) return null;
+    const min = Math.min(...cells);
+    const max = Math.max(...cells);
+    return {
+      delta: max - min,
+      minCell: cells.indexOf(min) + 1,
+      maxCell: cells.indexOf(max) + 1,
+    };
+  }, [cells]);
+
   const cards = useMemo(
     () => [
       { label: "SOC", value: number(metrics?.soc_percent, 0), unit: "%", caption: "State of charge", icon: BatteryCharging },
       { label: "Tegangan pack", value: number(metrics?.pack_voltage_v, 2), unit: "V", icon: Zap },
       { label: "Arus pack", value: number(metrics?.pack_current_a, 2), unit: "A", caption: "Negatif = discharge", icon: Gauge },
       { label: "Daya pack", value: number(metrics?.pack_power_w, 0), unit: "W", icon: Zap },
+      {
+        label: "Selisih sel",
+        value: cellDiff ? number(cellDiff.delta, 0) : "—",
+        unit: "mV",
+        caption: cellDiff
+          ? `Sel #${cellDiff.maxCell} vs #${cellDiff.minCell} • ${cellDiff.delta > IMBALANCE_THRESHOLD_MV ? "tidak seimbang" : "seimbang"}`
+          : undefined,
+        icon: GitCompareArrows,
+      },
       { label: "Suhu 1", value: number(metrics?.temperature_1_c, 1), unit: "°C", icon: Thermometer },
       { label: "Suhu 2", value: number(metrics?.temperature_2_c, 1), unit: "°C", icon: Thermometer },
       { label: "Siklus", value: number(metrics?.cycle_count, 0), unit: "x", icon: Recycle },
       { label: "Arus balance", value: number(metrics?.balance_current_a, 3), unit: "A", icon: Gauge },
     ],
-    [metrics],
+    [metrics, cellDiff],
   );
 
   return (

@@ -162,6 +162,28 @@ export interface BmsLatestResponse {
   server_time: string;
 }
 
+export interface BmsHistoryPoint {
+  recorded_at: string;
+  pack_voltage_v: number | null;
+  pack_power_w: number | null;
+  pack_current_a: number | null;
+  temperature_1_c: number | null;
+  temperature_2_c: number | null;
+  soc_percent: number | null;
+  remaining_capacity_ah: number | null;
+  full_capacity_ah: number | null;
+  cycle_count: number | null;
+  balance_current_a: number | null;
+}
+
+export interface BmsHistoryResponse {
+  device_slug: string;
+  from: string;
+  to: string;
+  resolution: string;
+  points: BmsHistoryPoint[];
+}
+
 export interface RegisterAnalysisResponse {
   device_slug: string;
   hours: number;

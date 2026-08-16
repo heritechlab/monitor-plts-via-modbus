@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { PowerChart } from "@/components/power-chart";
+import { BmsPowerChart } from "@/components/bms-power-chart";
 import { apiGet } from "@/lib/api";
 import { dateTime, localDateInput, number } from "@/lib/format";
 import {
@@ -10,11 +10,11 @@ import {
   historyRanges,
   type HistoryRangeKey,
 } from "@/lib/history-range";
-import type { HistoryPoint, HistoryResponse } from "@/lib/types";
+import type { BmsHistoryPoint, BmsHistoryResponse } from "@/lib/types";
 
 const PAGE_SIZE_OPTIONS = [50, 100];
 
-type SortKey = "recorded_at" | "pv_power_w" | "ac_output_power_w" | "battery_voltage_v" | "inverter_temperature_c";
+type SortKey = "recorded_at" | "soc_percent" | "pack_voltage_v" | "pack_current_a" | "temperature_1_c";
 type SortDirection = "asc" | "desc";
 
 interface SortHeaderProps {
@@ -46,11 +46,11 @@ function SortHeader({ label, targetKey, currentKey, direction, onSort }: SortHea
   );
 }
 
-export function HistoryClient({ deviceSlug }: { deviceSlug: string }) {
+export function BmsHistoryClient({ deviceSlug }: { deviceSlug: string }) {
   const today = localDateInput();
   const [selectedDate, setSelectedDate] = useState(today);
   const [range, setRange] = useState<HistoryRangeKey>("6h");
-  const [data, setData] = useState<HistoryResponse | null>(null);
+  const [data, setData] = useState<BmsHistoryResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [pageSize, setPageSize] = useState(50);
@@ -67,8 +67,8 @@ export function HistoryClient({ deviceSlug }: { deviceSlug: string }) {
       const selected = historyRanges[range];
       const { start, end } = buildHistoryWindow(selectedDate, range);
       setData(
-        await apiGet<HistoryResponse>(
-          `/api/v1/devices/${deviceSlug}/telemetry?from=${encodeURIComponent(start.toISOString())}` +
+        await apiGet<BmsHistoryResponse>(
+          `/api/v1/bms-devices/${deviceSlug}/telemetry?from=${encodeURIComponent(start.toISOString())}` +
             `&to=${encodeURIComponent(end.toISOString())}&resolution=${selected.resolution}`,
           { signal, cacheTtlSeconds: 30 },
         ),
@@ -95,7 +95,7 @@ export function HistoryClient({ deviceSlug }: { deviceSlug: string }) {
 
   const sortedPoints = useMemo(() => {
     const points = [...displayPoints];
-    points.sort((left: HistoryPoint, right: HistoryPoint) => {
+    points.sort((left: BmsHistoryPoint, right: BmsHistoryPoint) => {
       let leftValue: number;
       let rightValue: number;
       if (sortKey === "recorded_at") {
@@ -166,8 +166,8 @@ export function HistoryClient({ deviceSlug }: { deviceSlug: string }) {
         </div>
       </div>
       <article className="panel chart-panel">
-        <div className="panel-title-row"><h2>Daya PV vs beban AC estimasi</h2><span className="panel-note">{data ? `${dateTime(data.from)} — ${dateTime(data.to)}` : loading ? "Memuat..." : "—"}</span></div>
-        {error ? <div className="error-state">{error}</div> : loading ? <div className="empty">Memuat riwayat...</div> : <PowerChart points={data?.points ?? []} />}
+        <div className="panel-title-row"><h2>State of charge</h2><span className="panel-note">{data ? `${dateTime(data.from)} — ${dateTime(data.to)}` : loading ? "Memuat..." : "—"}</span></div>
+        {error ? <div className="error-state">{error}</div> : loading ? <div className="empty">Memuat riwayat...</div> : <BmsPowerChart points={data?.points ?? []} />}
       </article>
       <article className="panel section-gap">
         <div className="panel-title-row">
@@ -178,8 +178,8 @@ export function HistoryClient({ deviceSlug }: { deviceSlug: string }) {
               : `${number(totalPoints, 0)} titik`}
           </span>
         </div>
-        <div className="table-wrap"><table><thead><tr><th><SortHeader label="Waktu" targetKey="recorded_at" currentKey={sortKey} direction={sortDirection} onSort={handleSort} /></th><th><SortHeader label="PV" targetKey="pv_power_w" currentKey={sortKey} direction={sortDirection} onSort={handleSort} /></th><th><SortHeader label="Beban estimasi" targetKey="ac_output_power_w" currentKey={sortKey} direction={sortDirection} onSort={handleSort} /></th><th><SortHeader label="Baterai" targetKey="battery_voltage_v" currentKey={sortKey} direction={sortDirection} onSort={handleSort} /></th><th>Beban</th><th><SortHeader label="Suhu" targetKey="inverter_temperature_c" currentKey={sortKey} direction={sortDirection} onSort={handleSort} /></th></tr></thead><tbody>
-          {paginatedPoints.map((point) => <tr key={point.recorded_at}><td>{dateTime(point.recorded_at)}</td><td>{number(point.pv_power_w, 1)} W</td><td>{number(point.ac_output_power_w, 1)} VA</td><td>{number(point.battery_voltage_v, 1)} V</td><td>{number(point.load_percent, 0)}%</td><td>{number(point.inverter_temperature_c, 0)} °C</td></tr>)}
+        <div className="table-wrap"><table><thead><tr><th><SortHeader label="Waktu" targetKey="recorded_at" currentKey={sortKey} direction={sortDirection} onSort={handleSort} /></th><th><SortHeader label="SOC" targetKey="soc_percent" currentKey={sortKey} direction={sortDirection} onSort={handleSort} /></th><th><SortHeader label="Tegangan pack" targetKey="pack_voltage_v" currentKey={sortKey} direction={sortDirection} onSort={handleSort} /></th><th><SortHeader label="Arus pack" targetKey="pack_current_a" currentKey={sortKey} direction={sortDirection} onSort={handleSort} /></th><th><SortHeader label="Suhu 1" targetKey="temperature_1_c" currentKey={sortKey} direction={sortDirection} onSort={handleSort} /></th><th>Suhu 2</th></tr></thead><tbody>
+          {paginatedPoints.map((point) => <tr key={point.recorded_at}><td>{dateTime(point.recorded_at)}</td><td>{number(point.soc_percent, 0)}%</td><td>{number(point.pack_voltage_v, 2)} V</td><td>{number(point.pack_current_a, 2)} A</td><td>{number(point.temperature_1_c, 1)} °C</td><td>{number(point.temperature_2_c, 1)} °C</td></tr>)}
           {!loading && !error && paginatedPoints.length === 0 && <tr><td className="table-empty" colSpan={6}>Belum ada data pada rentang ini.</td></tr>}
         </tbody></table></div>
         {totalPoints > 0 && (
