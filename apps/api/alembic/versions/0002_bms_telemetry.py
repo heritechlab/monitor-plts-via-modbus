@@ -32,9 +32,15 @@ def _json_type() -> sa.types.TypeEngine:
 
 def upgrade() -> None:
     json_type = _json_type()
+    # BigInteger() alone leaves SQLite's column type as "BIGINT" — SQLite only wires
+    # up its ROWID autoincrement when a single-column INTEGER PRIMARY KEY is declared
+    # with the literal type "INTEGER", so a bare BIGINT here silently fails to
+    # autoincrement and every insert violates the NOT NULL constraint on id. Mirror
+    # app/db/models.py's BIGINT_PK (BigInteger with an Integer variant on sqlite).
+    id_type = sa.BigInteger().with_variant(sa.Integer(), "sqlite")
     op.create_table(
         "bms_telemetry",
-        sa.Column("id", sa.BigInteger(), autoincrement=True, nullable=False),
+        sa.Column("id", id_type, autoincrement=True, nullable=False),
         sa.Column("sample_id", sa.Uuid(), nullable=False),
         sa.Column("device_id", sa.Uuid(), nullable=False),
         sa.Column("recorded_at", sa.DateTime(timezone=True), nullable=False),
