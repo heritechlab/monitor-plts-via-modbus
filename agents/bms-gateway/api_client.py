@@ -26,7 +26,7 @@ class ApiClient:
     def send_batch(self, samples: list[dict]) -> dict[str, Any]:
         try:
             response = self._client.post(
-                "/api/v1/ingest/telemetry/batch", json={"samples": samples}
+                "/api/v1/ingest/bms-telemetry/batch", json={"samples": samples}
             )
         except httpx.HTTPError as exc:
             raise ApiClientError(str(exc)) from exc
