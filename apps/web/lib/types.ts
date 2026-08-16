@@ -116,6 +116,11 @@ export interface RegisterAnalysisItem {
   strongest_correlation: RegisterCorrelation | null;
 }
 
+export interface BmsDeviceSummary {
+  slug: string;
+  name: string;
+}
+
 export interface BmsMetrics {
   cell_voltages_mv: number[];
   pack_voltage_v: number | null;

@@ -22,12 +22,87 @@ import {
 import { MetricCard } from "@/components/metric-card";
 import { apiGet } from "@/lib/api";
 import { number } from "@/lib/format";
-import type { BmsLatestResponse } from "@/lib/types";
+import type { BmsDeviceSummary, BmsLatestResponse } from "@/lib/types";
 
 // Selisih di atas ambang ini (mV) dari rata-rata pack dianggap tidak seimbang.
 const IMBALANCE_THRESHOLD_MV = 20;
 
-export function BatteryPanel({ deviceSlug }: { deviceSlug: string }) {
+export function BatteryPanel() {
+  const [devices, setDevices] = useState<BmsDeviceSummary[] | null>(null);
+  const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
+  const [listError, setListError] = useState<string | null>(null);
+
+  useEffect(() => {
+    apiGet<{ devices: BmsDeviceSummary[] }>("/api/v1/bms-devices", { cacheTtlSeconds: 30 })
+      .then((response) => {
+        setDevices(response.devices);
+        setSelectedSlug((current) => current ?? response.devices[0]?.slug ?? null);
+        setListError(null);
+      })
+      .catch((reason) => setListError(reason instanceof Error ? reason.message : "API tidak dapat dihubungi"));
+  }, []);
+
+  if (listError) {
+    return (
+      <div>
+        <header className="page-header">
+          <div>
+            <p className="eyebrow">Baterai</p>
+            <h1>Sel baterai.</h1>
+          </div>
+        </header>
+        <div className="error-state panel">{listError}</div>
+      </div>
+    );
+  }
+
+  if (devices !== null && devices.length === 0) {
+    return (
+      <div>
+        <header className="page-header">
+          <div>
+            <p className="eyebrow">Baterai</p>
+            <h1>Sel baterai.</h1>
+            <p className="subtitle">Belum ada BMS terdaftar.</p>
+          </div>
+        </header>
+        <div className="empty panel">
+          Daftarkan BMS lewat CLI (<code>ensure-device --device-type bms</code>) lalu pasang gateway-nya.
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {devices && devices.length > 1 && (
+        <div className="controls" style={{ marginBottom: 14 }}>
+          {devices.map((device) => (
+            <button
+              className={`control-button ${device.slug === selectedSlug ? "active" : ""}`}
+              key={device.slug}
+              onClick={() => setSelectedSlug(device.slug)}
+              type="button"
+            >
+              {device.name}
+            </button>
+          ))}
+        </div>
+      )}
+      {selectedSlug && devices ? (
+        <BatteryDevicePanel
+          deviceName={devices.find((device) => device.slug === selectedSlug)?.name ?? selectedSlug}
+          deviceSlug={selectedSlug}
+          key={selectedSlug}
+        />
+      ) : (
+        <div className="empty panel">Memuat daftar baterai…</div>
+      )}
+    </div>
+  );
+}
+
+function BatteryDevicePanel({ deviceSlug, deviceName }: { deviceSlug: string; deviceName: string }) {
   const [latest, setLatest] = useState<BmsLatestResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -88,9 +163,9 @@ export function BatteryPanel({ deviceSlug }: { deviceSlug: string }) {
     <div>
       <header className="page-header">
         <div>
-          <p className="eyebrow">Baterai kedua</p>
-          <h1>Sel baterai JK-BD6A24S8P.</h1>
-          <p className="subtitle">8S LiFePO4 • pembaruan otomatis setiap 5 detik</p>
+          <p className="eyebrow">Baterai</p>
+          <h1>{deviceName}.</h1>
+          <p className="subtitle">Pembaruan otomatis setiap 5 detik</p>
         </div>
         <div className={`status-pill ${latest?.telemetry_status ?? "offline"}`}>
           <span className="status-dot" />

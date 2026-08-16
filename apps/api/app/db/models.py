@@ -32,6 +32,7 @@ class Device(Base):
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     slug: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
+    device_type: Mapped[str] = mapped_column(String(20), default="inverter", nullable=False)
     location: Mapped[str | None] = mapped_column(String(255))
     timezone: Mapped[str] = mapped_column(String(64), default="Asia/Jakarta", nullable=False)
     inverter_model: Mapped[str | None] = mapped_column(String(100))

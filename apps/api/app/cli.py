@@ -10,7 +10,9 @@ from app.db.models import Device, DeviceApiKey
 from app.db.session import SessionLocal
 
 
-async def ensure_device(slug: str, name: str, supplied_key: str | None) -> None:
+async def ensure_device(
+    slug: str, name: str, supplied_key: str | None, device_type: str = "inverter"
+) -> None:
     async with SessionLocal() as session:
         device = await session.scalar(select(Device).where(Device.slug == slug))
         created = device is None
@@ -18,8 +20,9 @@ async def ensure_device(slug: str, name: str, supplied_key: str | None) -> None:
             device = Device(
                 slug=slug,
                 name=name,
+                device_type=device_type,
                 timezone=settings.app_timezone,
-                inverter_model="PRIME LFT10224-H40",
+                inverter_model="PRIME LFT10224-H40" if device_type == "inverter" else None,
                 inverter_rated_w=1000,
                 pv_rated_wp=1170,
                 battery_nominal_v=24,
@@ -72,9 +75,10 @@ def main() -> None:
     ensure.add_argument("--slug", default=settings.device_slug)
     ensure.add_argument("--name", default=settings.device_name)
     ensure.add_argument("--api-key", default=settings.device_api_key)
+    ensure.add_argument("--device-type", default="inverter", choices=["inverter", "bms"])
     args = parser.parse_args()
     if args.command == "ensure-device":
-        asyncio.run(ensure_device(args.slug, args.name, args.api_key))
+        asyncio.run(ensure_device(args.slug, args.name, args.api_key, args.device_type))
     else:
         sys.exit(2)
 

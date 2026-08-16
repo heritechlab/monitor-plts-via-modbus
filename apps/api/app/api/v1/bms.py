@@ -6,11 +6,23 @@ from sqlalchemy import Integer, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.devices import age_seconds, find_device, iso, status_from_age
-from app.db.models import BmsTelemetry, GatewayStatus
+from app.db.models import BmsTelemetry, Device, GatewayStatus
 from app.db.session import get_db
 from app.services.analytics import as_utc
 
 router = APIRouter(prefix="/bms-devices", tags=["bms"])
+
+
+@router.get("")
+async def list_bms_devices(session: AsyncSession = Depends(get_db)) -> dict:
+    rows = (
+        await session.scalars(
+            select(Device)
+            .where(Device.device_type == "bms", Device.is_active.is_(True))
+            .order_by(Device.name)
+        )
+    ).all()
+    return {"devices": [{"slug": row.slug, "name": row.name} for row in rows]}
 
 METRIC_FIELDS = [
     "pack_voltage_v",

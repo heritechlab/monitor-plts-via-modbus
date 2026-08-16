@@ -58,7 +58,12 @@ async def test_bms_ingest_duplicate_latest_and_history() -> None:
 
     key = "plts_bms_integration_test_key"
     async with session_factory() as session:
-        device = Device(slug="prime-rumah-01-bms", name="Baterai kedua", timezone="Asia/Jakarta")
+        device = Device(
+            slug="prime-rumah-01-bms",
+            name="Baterai kedua",
+            device_type="bms",
+            timezone="Asia/Jakarta",
+        )
         session.add(device)
         await session.flush()
         session.add(
@@ -123,6 +128,12 @@ async def test_bms_ingest_duplicate_latest_and_history() -> None:
             )
             assert history.status_code == 200
             assert history.json()["points"]
+
+            listing = await client.get("/api/v1/bms-devices")
+            assert listing.status_code == 200
+            assert listing.json()["devices"] == [
+                {"slug": "prime-rumah-01-bms", "name": "Baterai kedua"}
+            ]
     finally:
         app.dependency_overrides.clear()
         await engine.dispose()
