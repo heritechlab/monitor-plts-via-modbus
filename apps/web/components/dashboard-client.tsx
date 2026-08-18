@@ -40,6 +40,8 @@ interface BmsPackSummary {
   name: string;
   socPercent: number | null;
   packVoltageV: number | null;
+  packCurrentA: number | null;
+  packPowerW: number | null;
   status: "online" | "degraded" | "offline";
 }
 
@@ -62,10 +64,20 @@ function useBmsPacks() {
               name: device.name,
               socPercent: latest.telemetry?.metrics.soc_percent ?? null,
               packVoltageV: latest.telemetry?.metrics.pack_voltage_v ?? null,
+              packCurrentA: latest.telemetry?.metrics.pack_current_a ?? null,
+              packPowerW: latest.telemetry?.metrics.pack_power_w ?? null,
               status: latest.telemetry_status,
             };
           } catch {
-            return { slug: device.slug, name: device.name, socPercent: null, packVoltageV: null, status: "offline" as const };
+            return {
+              slug: device.slug,
+              name: device.name,
+              socPercent: null,
+              packVoltageV: null,
+              packCurrentA: null,
+              packPowerW: null,
+              status: "offline" as const,
+            };
           }
         }),
       );
@@ -181,16 +193,31 @@ export function DashboardClient({ deviceSlug }: { deviceSlug: string }) {
             <Link className="panel-note" href="/battery">Lihat detail sel →</Link>
           </div>
           <div className="grid metric-grid">
-            {bmsPacks.map((pack) => (
-              <MetricCard
-                caption={`${number(pack.packVoltageV, 1)} V • ${pack.status === "online" ? "online" : pack.status}`}
-                icon={BatteryCharging}
-                key={pack.slug}
-                label={pack.name}
-                unit="%"
-                value={number(pack.socPercent, 0)}
-              />
-            ))}
+            {bmsPacks.map((pack) => {
+              const charging = pack.packCurrentA !== null && pack.packCurrentA >= 0;
+              const directionClass = pack.packCurrentA === null ? "" : charging ? "good" : "danger";
+              return (
+                <article className="metric-card" key={pack.slug}>
+                  <div className="metric-label">
+                    <span>{pack.name}</span>
+                    <BatteryCharging className="metric-icon" size={16} />
+                  </div>
+                  <div className="metric-value">
+                    {number(pack.socPercent, 0)}<span className="metric-unit">%</span>
+                  </div>
+                  <div className="metric-caption">
+                    {number(pack.packVoltageV, 1)} V • {pack.status === "online" ? "online" : pack.status}
+                  </div>
+                  <div className="metric-caption" style={{ marginTop: 4 }}>
+                    <span className={directionClass}>
+                      {number(pack.packCurrentA, 2)} A ({charging ? "mengisi" : "discharge"})
+                    </span>
+                    {" • "}
+                    <span className={directionClass}>{number(pack.packPowerW, 0)} W</span>
+                  </div>
+                </article>
+              );
+            })}
           </div>
         </section>
       )}
