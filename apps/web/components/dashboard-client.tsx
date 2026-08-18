@@ -18,6 +18,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { MetricCard } from "@/components/metric-card";
 import { PowerChart } from "@/components/power-chart";
+import { PowerGauge } from "@/components/power-gauge";
 import { apiGet } from "@/lib/api";
 import {
   apparentEnergy,
@@ -99,12 +100,29 @@ function useBmsPacks() {
   return packs;
 }
 
+function useRatedCapacity(deviceSlug: string) {
+  const [rated, setRated] = useState<{ pvRatedWp: number; inverterRatedW: number } | null>(null);
+
+  useEffect(() => {
+    apiGet<{ pv_rated_wp: number; inverter_rated_w: number }>(`/api/v1/devices/${deviceSlug}`, {
+      cacheTtlSeconds: 300,
+    })
+      .then((detail) =>
+        setRated({ pvRatedWp: detail.pv_rated_wp, inverterRatedW: detail.inverter_rated_w }),
+      )
+      .catch(() => undefined);
+  }, [deviceSlug]);
+
+  return rated;
+}
+
 export function DashboardClient({ deviceSlug }: { deviceSlug: string }) {
   const [latest, setLatest] = useState<LatestResponse | null>(null);
   const [daily, setDaily] = useState<DailySummary | null>(null);
   const [history, setHistory] = useState<HistoryResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const bmsPacks = useBmsPacks();
+  const rated = useRatedCapacity(deviceSlug);
 
   const loadLatest = useCallback(async () => {
     try {
@@ -233,6 +251,10 @@ export function DashboardClient({ deviceSlug }: { deviceSlug: string }) {
 
         <article className="panel">
           <div className="panel-title-row"><h2>Aliran daya</h2><span className="panel-note">Beban inverter adalah estimasi VA</span></div>
+          <div className="grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
+            <PowerGauge label="Daya PV" max={rated?.pvRatedWp ?? 1200} unit="W" value={metrics?.pv_power_w ?? null} />
+            <PowerGauge label="Beban AC" max={rated?.inverterRatedW ?? 1000} unit="VA" value={metrics?.ac_output_power_w ?? null} />
+          </div>
           <div className="energy-flow">
             <div className="flow-node"><div className="flow-node-icon"><SunMedium size={19} /></div><strong>{pv.value} {pv.unit}</strong><span>Panel PV</span></div>
             <div className="flow-line" />

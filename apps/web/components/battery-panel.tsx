@@ -2,6 +2,7 @@
 
 import {
   BatteryCharging,
+  BatteryFull,
   Gauge,
   GitCompareArrows,
   Recycle,
@@ -163,6 +164,8 @@ function BatteryDevicePanel({ deviceSlug, deviceName }: { deviceSlug: string; de
       { label: "Tegangan pack", value: number(metrics?.pack_voltage_v, 2), unit: "V", icon: Zap },
       { label: "Arus pack", value: number(metrics?.pack_current_a, 2), unit: "A", caption: "Negatif = discharge", icon: Gauge },
       { label: "Daya pack", value: number(metrics?.pack_power_w, 0), unit: "W", icon: Zap },
+      { label: "Sisa kapasitas", value: number(metrics?.remaining_capacity_ah, 1), unit: "Ah", caption: `Dari ${number(metrics?.full_capacity_ah, 0)} Ah terpasang`, icon: BatteryFull },
+      { label: "Kapasitas penuh", value: number(metrics?.full_capacity_ah, 0), unit: "Ah", caption: "Full charge capacity (BMS)", icon: BatteryFull },
       {
         label: "Selisih sel",
         value: cellDiff ? number(cellDiff.delta, 0) : "—",
