@@ -27,12 +27,17 @@
 
 .PARAMETER Force
     Deploy meskipun tidak ada commit baru (tidak direkomendasikan).
+
+.PARAMETER KeepBackups
+    Jumlah backup terakhir yang dipertahankan per jenis. Default: 5.
+    Tanpa rotasi, tiap deploy menambah satu salinan penuh database.
 #>
 param(
     [string]$Branch = "main",
     [switch]$SkipBackup,
     [switch]$IncludeGateway,
-    [switch]$Force
+    [switch]$Force,
+    [int]$KeepBackups = 5
 )
 
 $ErrorActionPreference = "Stop"
@@ -98,6 +103,22 @@ function Invoke-Backup() {
         Copy-Item -LiteralPath $RootEnv -Destination (Join-Path $BackupDir ".env_$Timestamp") -Force
     }
 }
+function Remove-OldBackups([int]$Keep) {
+    if (-not (Test-Path -LiteralPath $BackupDir)) { return }
+    # Tiap jenis backup dirotasi terpisah supaya set terbaru selalu lengkap.
+    $Groups = @("plts_*.sqlite3", "offline_queue_*.sqlite3", "csv_*", ".env_*")
+    foreach ($Pattern in $Groups) {
+        $Items = Get-ChildItem -LiteralPath $BackupDir -Filter $Pattern -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending
+        if ($Items.Count -le $Keep) { continue }
+        $Stale = $Items | Select-Object -Skip $Keep
+        foreach ($Item in $Stale) {
+            Remove-Item -LiteralPath $Item.FullName -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        Write-Log "Rotasi backup '$Pattern': $($Stale.Count) salinan lama dihapus, $Keep disimpan."
+    }
+}
+
 
 function Test-CommandAvailable($Name) {
     return [bool](Get-Command $Name -ErrorAction SilentlyContinue)
@@ -208,6 +229,7 @@ if ($LocalCommit -eq $RemoteCommit) {
 if (-not $SkipBackup) {
     Write-Log "Backup data production..."
     Invoke-Backup
+    Remove-OldBackups -Keep $KeepBackups
 } else {
     Write-Log "Backup dilewati."
 }

@@ -1,13 +1,19 @@
 import argparse
 import asyncio
 import sys
+from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import String, cast, func, select, text, update
 
 from app.core.config import settings
 from app.core.security import api_key_prefix, generate_api_key, hash_api_key, verify_api_key
-from app.db.models import Device, DeviceApiKey
-from app.db.session import SessionLocal
+from app.db.models import BmsTelemetry, Device, DeviceApiKey, InverterTelemetry
+from app.db.session import SessionLocal, engine
+
+# Tabel telemetry yang menyimpan dump register mentah. Kolom itu hanya dibaca
+# halaman Register (maksimal 24 jam ke belakang) dan endpoint /latest, jadi
+# salinan lamanya aman dikosongkan.
+RAW_REGISTER_TABLES = (InverterTelemetry, BmsTelemetry)
 
 
 async def ensure_device(
@@ -68,6 +74,45 @@ async def ensure_device(
         print("API key dari konfigurasi berhasil didaftarkan.")
 
 
+async def prune_raw_registers(days: int, run_vacuum: bool) -> None:
+    """Kosongkan raw_registers untuk sampel lama, lalu rapikan file DB.
+
+    Metrik hasil decode (PV, beban, tegangan, suhu, sel baterai) tidak disentuh,
+    jadi seluruh halaman analitik, grafik, dan riwayat tetap utuh. Yang hilang
+    hanya kemampuan membedah register mentah untuk tanggal di luar rentang simpan.
+    """
+    cutoff = datetime.now(UTC) - timedelta(days=days)
+    total = 0
+    async with SessionLocal() as session:
+        for model in RAW_REGISTER_TABLES:
+            result = await session.execute(
+                update(model)
+                .where(
+                    model.recorded_at < cutoff,
+                    # Lewati baris yang sudah kosong supaya menjalankan perintah ini
+                    # berulang kali tidak menulis ulang seluruh tabel.
+                    func.length(cast(model.raw_registers, String)) > 2,
+                )
+                .values(raw_registers={})
+            )
+            print(f"{model.__tablename__}: {result.rowcount:,} baris dikosongkan")
+            total += result.rowcount
+        await session.commit()
+
+    print(f"Total {total:,} baris lebih tua dari {days} hari dibersihkan.")
+    if not run_vacuum:
+        return
+    if total == 0:
+        print("Tidak ada perubahan, VACUUM dilewati.")
+        return
+    print("Menjalankan VACUUM untuk merebut kembali ruang disk...")
+    # VACUUM tidak boleh berada di dalam transaksi.
+    async with engine.connect() as connection:
+        await connection.execution_options(isolation_level="AUTOCOMMIT")
+        await connection.execute(text("VACUUM"))
+    print("VACUUM selesai.")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Administrasi PLTS Monitor")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -76,9 +121,16 @@ def main() -> None:
     ensure.add_argument("--name", default=settings.device_name)
     ensure.add_argument("--api-key", default=settings.device_api_key)
     ensure.add_argument("--device-type", default="inverter", choices=["inverter", "bms"])
+
+    prune = sub.add_parser("prune-raw", help="Kosongkan raw_registers sampel lama")
+    prune.add_argument("--days", type=int, default=7, help="Umur simpan register mentah")
+    prune.add_argument("--no-vacuum", action="store_true", help="Lewati VACUUM")
+
     args = parser.parse_args()
     if args.command == "ensure-device":
         asyncio.run(ensure_device(args.slug, args.name, args.api_key, args.device_type))
+    elif args.command == "prune-raw":
+        asyncio.run(prune_raw_registers(args.days, not args.no_vacuum))
     else:
         sys.exit(2)
 
