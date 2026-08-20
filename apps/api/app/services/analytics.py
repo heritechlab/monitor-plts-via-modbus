@@ -8,9 +8,28 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import load_only
 
 from app.core.config import settings
-from app.db.models import Device, InverterTelemetry
+from app.db.models import DailySummary, Device, InverterTelemetry
+
+# Naikkan bila bentuk atau rumus build_daily_summary berubah, supaya baris cache
+# lama otomatis dianggap basi dan dihitung ulang.
+SUMMARY_VERSION = 1
+SUMMARY_VERSION_KEY = "_summary_version"
+
+# Kolom yang benar-benar dipakai perhitungan di modul ini. raw_registers sengaja
+# tidak ikut: JSON 32 register per baris itu tidak pernah dibaca di sini, dan pada
+# rentang bulanan berarti ratusan ribu blob JSON diurai percuma.
+ANALYTICS_COLUMNS = (
+    InverterTelemetry.recorded_at,
+    InverterTelemetry.pv_power_w,
+    InverterTelemetry.ac_output_power_w,
+    InverterTelemetry.battery_voltage_v,
+    InverterTelemetry.inverter_temperature_c,
+    InverterTelemetry.quality_flags,
+    InverterTelemetry.quality_details,
+)
 
 
 def as_utc(value: datetime) -> datetime:
@@ -76,6 +95,9 @@ async def load_window(
         (
             await session.scalars(
                 select(InverterTelemetry)
+                # raiseload agar akses kolom di luar ANALYTICS_COLUMNS gagal keras,
+                # bukan diam-diam memicu satu query lazy-load per baris.
+                .options(load_only(*ANALYTICS_COLUMNS, raiseload=True))
                 .where(
                     InverterTelemetry.device_id == device_id,
                     InverterTelemetry.recorded_at >= as_utc(start) - margin,
@@ -209,6 +231,37 @@ async def build_daily_summary(session: AsyncSession, device: Device, local_date:
     }
 
 
+def _strip_version(summary: dict) -> dict:
+    return {key: value for key, value in summary.items() if key != SUMMARY_VERSION_KEY}
+
+
+async def get_or_build_daily_summary(
+    session: AsyncSession, device: Device, local_date: date
+) -> dict:
+    """Versi build_daily_summary yang memakai cache daily_summaries.
+
+    Hari yang sudah lewat bersifat tetap, jadi cukup dihitung sekali. Hari berjalan
+    tidak pernah di-cache karena datanya masih bertambah. Sampel susulan untuk hari
+    lampau (flush antrean offline gateway) membatalkan cache lewat store_telemetry.
+    """
+    today = datetime.now(ZoneInfo(device.timezone)).date()
+    if local_date >= today:
+        return await build_daily_summary(session, device, local_date)
+
+    cached = await session.get(DailySummary, (device.id, local_date))
+    if cached is not None and cached.summary.get(SUMMARY_VERSION_KEY) == SUMMARY_VERSION:
+        return _strip_version(cached.summary)
+
+    summary = await build_daily_summary(session, device, local_date)
+    stored = {SUMMARY_VERSION_KEY: SUMMARY_VERSION, **summary}
+    if cached is None:
+        session.add(DailySummary(device_id=device.id, local_date=local_date, summary=stored))
+    else:
+        cached.summary = stored
+    await session.commit()
+    return summary
+
+
 async def build_monthly_summary(
     session: AsyncSession, device: Device, year: int, month: int
 ) -> dict:
@@ -219,7 +272,7 @@ async def build_monthly_summary(
         current = date(year, month, day)
         if current > today:
             break
-        daily.append(await build_daily_summary(session, device, current))
+        daily.append(await get_or_build_daily_summary(session, device, current))
 
     available = [item for item in daily if item["sample_count"] > 0]
     best = max(available, key=lambda item: item["pv_energy_kwh"], default=None)

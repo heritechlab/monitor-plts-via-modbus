@@ -1,10 +1,11 @@
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from zoneinfo import ZoneInfo
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import BmsTelemetry, Device, GatewayStatus, InverterTelemetry
+from app.db.models import BmsTelemetry, DailySummary, Device, GatewayStatus, InverterTelemetry
 from app.schemas.telemetry import BmsTelemetryPayload, HeartbeatPayload, TelemetryPayload
 from app.services.quality import evaluate_quality
 
@@ -63,6 +64,7 @@ async def store_telemetry(
     ) < payload.recorded_at.astimezone(UTC):
         device.last_telemetry_recorded_at = payload.recorded_at.astimezone(UTC)
 
+    await _invalidate_daily_summary(session, device, payload.recorded_at)
     await _touch_gateway_status(
         session,
         device,
@@ -75,6 +77,27 @@ async def store_telemetry(
     )
     await session.flush()
     return StoredSample(telemetry, duplicate=False)
+
+
+async def _invalidate_daily_summary(
+    session: AsyncSession, device: Device, recorded_at: datetime
+) -> None:
+    """Buang cache ringkasan harian bila sampel ini milik hari yang sudah lewat.
+
+    Hari berjalan tidak pernah di-cache, jadi jalur normal (data live) tidak
+    melakukan apa pun. Yang perlu dibatalkan hanya sampel susulan, misalnya saat
+    gateway mem-flush antrean offline setelah API sempat mati.
+    """
+    zone = ZoneInfo(device.timezone)
+    local_date = recorded_at.astimezone(zone).date()
+    if local_date >= datetime.now(zone).date():
+        return
+    await session.execute(
+        delete(DailySummary).where(
+            DailySummary.device_id == device.id,
+            DailySummary.local_date == local_date,
+        )
+    )
 
 
 async def store_bms_telemetry(

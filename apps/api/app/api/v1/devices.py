@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.db.models import Device, GatewayStatus, InverterTelemetry
 from app.db.session import get_db
-from app.services.analytics import as_utc, build_daily_summary, build_monthly_summary
+from app.services.analytics import as_utc, build_monthly_summary, get_or_build_daily_summary
 from app.services.register_analysis import build_register_analysis
 
 router = APIRouter(prefix="/devices", tags=["devices"])
@@ -244,7 +244,7 @@ async def daily_analytics(
     session: AsyncSession = Depends(get_db),
 ) -> dict:
     device = await find_device(session, slug)
-    return await build_daily_summary(session, device, date_value)
+    return await get_or_build_daily_summary(session, device, date_value)
 
 
 @router.get("/{slug}/analytics/monthly")
@@ -268,7 +268,7 @@ async def data_quality(
     session: AsyncSession = Depends(get_db),
 ) -> dict:
     device = await find_device(session, slug)
-    summary = await build_daily_summary(session, device, date_value)
+    summary = await get_or_build_daily_summary(session, device, date_value)
     start = (
         datetime.fromisoformat(summary["first_sample_at"]) if summary["first_sample_at"] else None
     )

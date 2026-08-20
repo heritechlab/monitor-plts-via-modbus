@@ -1,5 +1,6 @@
 import uuid
 from datetime import UTC, datetime
+from zoneinfo import ZoneInfo
 
 import httpx
 import pytest
@@ -99,7 +100,10 @@ async def test_ingest_duplicate_latest_and_partial_batch() -> None:
             assert registers.json()["serial_requests_added"] == 0
             assert registers.json()["summary"]["known"] == 8
 
-            today = datetime.now(UTC).date().isoformat()
+            # Endpoint membucket per hari LOKAL device (Asia/Jakarta), jadi tanggal
+            # acuan harus lokal juga. Memakai tanggal UTC membuat test merah setiap
+            # kali dijalankan pada 00:00-06:59 WIB, saat tanggal UTC masih kemarin.
+            today = datetime.now(ZoneInfo("Asia/Jakarta")).date().isoformat()
             daily = await client.get(f"/api/v1/devices/prime-rumah-01/analytics/daily?date={today}")
             assert daily.status_code == 200
             assert daily.json()["sample_count"] == 2

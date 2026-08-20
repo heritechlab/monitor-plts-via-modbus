@@ -43,7 +43,7 @@ def payload(sample_id: uuid.UUID | None = None) -> dict:
             "alarm_flags": 0,
         },
         "raw_registers": {
-            **{addr: value for addr, value in zip(CELL_ADDRESSES, cell_voltages)},
+            **{addr: value for addr, value in zip(CELL_ADDRESSES, cell_voltages, strict=True)},
             **{addr: 0 for addr in STAT_ADDRESSES},
         },
     }
