@@ -190,10 +190,29 @@ export function DashboardClient({ deviceSlug }: { deviceSlug: string }) {
         caption: "Estimasi dari tegangan • bukan coulomb counting",
         icon: BatteryMedium,
       },
-      ...(onGrid
+      // Kartu PLN selalu tampil begitu gateway mengirim field ini (bukan hanya saat
+      // aktif) supaya jelas ini kondisi "PLN memang tidak terpasang", bukan sekadar
+      // sedang tidak dipakai. Saat tidak aktif nilainya dipaksa 0 — pembacaan mentah
+      // inverter untuk tegangan PLN saat kabel dicabut adalah tegangan bocoran ~9V
+      // yang tidak berarti apa-apa, jadi ditampilkan sebagai 0 seperti panel inverter.
+      ...(onGrid !== null
         ? [
-            { label: "Tegangan PLN", value: number(metrics?.grid_voltage_v, 1), unit: "V", icon: PlugZap },
-            { label: "Frekuensi PLN", value: number(metrics?.grid_frequency_hz, 1), unit: "Hz", icon: Activity },
+            {
+              label: "Tegangan PLN",
+              value: number(onGrid ? metrics?.grid_voltage_v : 0, 1),
+              unit: "V",
+              caption: onGrid ? undefined : "PLN tidak terpasang",
+              icon: PlugZap,
+              muted: !onGrid,
+            },
+            {
+              label: "Frekuensi PLN",
+              value: number(onGrid ? metrics?.grid_frequency_hz : 0, 1),
+              unit: "Hz",
+              caption: onGrid ? undefined : "PLN tidak terpasang",
+              icon: Activity,
+              muted: !onGrid,
+            },
           ]
         : []),
     ],
@@ -219,7 +238,7 @@ export function DashboardClient({ deviceSlug }: { deviceSlug: string }) {
                 <span>
                   {onGrid
                     ? `${number(metrics?.grid_voltage_v, 1)} V • ${number(metrics?.grid_frequency_hz, 1)} Hz`
-                    : "Beban dari inverter"}
+                    : "PLN tidak terpasang • full inverter"}
                 </span>
               </div>
             </div>
