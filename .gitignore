@@ -11,6 +11,11 @@ venv/
 node_modules/
 .next/
 out/
+# Dibuat ulang otomatis oleh next dev / next build, dan isinya berbeda antar mesin
+# (jalur .next/dev/types vs .next/types), sehingga kalau dilacak git working tree
+# selalu kotor dan deploy-production.ps1 menolak jalan.
+next-env.d.ts
+*.tsbuildinfo
 coverage/
 htmlcov/
 .coverage
