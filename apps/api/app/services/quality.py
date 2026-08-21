@@ -14,6 +14,10 @@ RANGES: dict[str, tuple[float, float]] = {
     "ac_output_power_w": (0, 1200),
     "load_percent": (0, 150),
     "inverter_temperature_c": (-20, 100),
+    "grid_active": (0, 1),
+    "grid_voltage_v": (0, 300),
+    "grid_frequency_hz": (0, 70),
+    "inverter_soc_percent": (0, 100),
 }
 
 

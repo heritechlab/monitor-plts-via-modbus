@@ -95,6 +95,10 @@ class InverterTelemetry(Base):
     ac_output_power_w: Mapped[float | None] = mapped_column(Float)
     load_percent: Mapped[float | None] = mapped_column(Float)
     inverter_temperature_c: Mapped[float | None] = mapped_column(Float)
+    grid_active: Mapped[float | None] = mapped_column(Float)
+    grid_voltage_v: Mapped[float | None] = mapped_column(Float)
+    grid_frequency_hz: Mapped[float | None] = mapped_column(Float)
+    inverter_soc_percent: Mapped[float | None] = mapped_column(Float)
 
     raw_registers: Mapped[dict[str, int]] = mapped_column(JSON_TYPE, nullable=False)
     raw_start_address: Mapped[int] = mapped_column(Integer, default=0x3000, nullable=False)

@@ -17,6 +17,12 @@ class MetricsPayload(BaseModel):
     ac_output_power_w: float | None = None
     load_percent: float | None = None
     inverter_temperature_c: float | None = None
+    # Ditambahkan setelah identifikasi register; sengaja opsional agar gateway
+    # versi lama yang belum mengirimnya tetap diterima tanpa error.
+    grid_active: float | None = None
+    grid_voltage_v: float | None = None
+    grid_frequency_hz: float | None = None
+    inverter_soc_percent: float | None = None
 
 
 class TelemetryPayload(BaseModel):

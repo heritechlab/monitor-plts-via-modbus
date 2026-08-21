@@ -4,6 +4,7 @@ import {
   Activity,
   BatteryCharging,
   BatteryMedium,
+  PlugZap,
   Bolt,
   CircuitBoard,
   Clock3,
@@ -167,6 +168,8 @@ export function DashboardClient({ deviceSlug }: { deviceSlug: string }) {
   }, [loadCharts, loadLatest]);
 
   const metrics = latest?.telemetry?.metrics;
+  const gridActive = metrics?.grid_active;
+  const onGrid = gridActive === null || gridActive === undefined ? null : gridActive >= 0.5;
   const pv = power(metrics?.pv_power_w);
   const output = apparentPower(metrics?.ac_output_power_w);
   const cards = useMemo(
@@ -180,8 +183,21 @@ export function DashboardClient({ deviceSlug }: { deviceSlug: string }) {
       { label: "Tegangan AC", value: number(metrics?.ac_output_voltage_v, 1), unit: "V", icon: CircuitBoard },
       { label: "Beban inverter", value: number(metrics?.load_percent, 0), unit: "%", icon: Gauge },
       { label: "Suhu inverter", value: number(metrics?.inverter_temperature_c, 0), unit: "°C", icon: Thermometer },
+      {
+        label: "SOC inverter",
+        value: number(metrics?.inverter_soc_percent, 0),
+        unit: "%",
+        caption: "Estimasi dari tegangan • bukan coulomb counting",
+        icon: BatteryMedium,
+      },
+      ...(onGrid
+        ? [
+            { label: "Tegangan PLN", value: number(metrics?.grid_voltage_v, 1), unit: "V", icon: PlugZap },
+            { label: "Frekuensi PLN", value: number(metrics?.grid_frequency_hz, 1), unit: "Hz", icon: Activity },
+          ]
+        : []),
     ],
-    [daily, metrics, output, pv],
+    [daily, metrics, onGrid, output, pv],
   );
 
   return (
@@ -194,9 +210,24 @@ export function DashboardClient({ deviceSlug }: { deviceSlug: string }) {
             Inverter PRIME • pembaruan otomatis setiap 5 detik
           </p>
         </div>
-        <div className={`status-pill ${latest?.telemetry_status ?? "offline"}`}>
-          <span className="status-dot" />
-          {error ?? (latest?.telemetry_status === "online" ? "Data langsung" : latest?.telemetry_status ?? "Menghubungkan")}
+        <div className="header-status">
+          {onGrid !== null && (
+            <div className={`source-pill ${onGrid ? "on-grid" : "on-battery"}`}>
+              {onGrid ? <PlugZap size={15} /> : <BatteryMedium size={15} />}
+              <div>
+                <strong>{onGrid ? "PLN" : "Baterai"}</strong>
+                <span>
+                  {onGrid
+                    ? `${number(metrics?.grid_voltage_v, 1)} V • ${number(metrics?.grid_frequency_hz, 1)} Hz`
+                    : "Beban dari inverter"}
+                </span>
+              </div>
+            </div>
+          )}
+          <div className={`status-pill ${latest?.telemetry_status ?? "offline"}`}>
+            <span className="status-dot" />
+            {error ?? (latest?.telemetry_status === "online" ? "Data langsung" : latest?.telemetry_status ?? "Menghubungkan")}
+          </div>
         </div>
       </header>
 

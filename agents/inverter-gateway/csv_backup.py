@@ -14,6 +14,10 @@ METRIC_FIELDS = [
     "ac_output_power_w",
     "load_percent",
     "inverter_temperature_c",
+    "grid_active",
+    "grid_voltage_v",
+    "grid_frequency_hz",
+    "inverter_soc_percent",
 ]
 RAW_FIELDS = [f"0x{0x3000 + index:04X}" for index in range(32)]
 

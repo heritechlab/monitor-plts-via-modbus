@@ -14,7 +14,6 @@ import sys
 import time
 
 import serial
-
 from crc import append_crc, validate_crc
 
 

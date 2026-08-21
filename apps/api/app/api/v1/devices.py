@@ -25,6 +25,12 @@ METRIC_FIELDS = [
     "ac_output_power_w",
     "load_percent",
     "inverter_temperature_c",
+    # grid_active disimpan 1/0 sehingga rata-rata per ember waktu terbaca sebagai
+    # porsi waktu beban disuplai PLN.
+    "grid_active",
+    "grid_voltage_v",
+    "grid_frequency_hz",
+    "inverter_soc_percent",
 ]
 RESOLUTION_SECONDS = {"1m": 60, "5m": 300, "15m": 900, "1h": 3600}
 MAX_SPANS = {

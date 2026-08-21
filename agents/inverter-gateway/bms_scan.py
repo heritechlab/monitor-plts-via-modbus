@@ -14,7 +14,6 @@ import sys
 import time
 
 import serial
-
 from crc import append_crc, validate_crc
 
 DEFAULT_BAUDS = [9600, 19200, 38400, 115200]

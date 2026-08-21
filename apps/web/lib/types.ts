@@ -7,7 +7,11 @@ export type MetricName =
   | "ac_output_current_a"
   | "ac_output_power_w"
   | "load_percent"
-  | "inverter_temperature_c";
+  | "inverter_temperature_c"
+  | "grid_active"
+  | "grid_voltage_v"
+  | "grid_frequency_hz"
+  | "inverter_soc_percent";
 
 export type Metrics = Record<MetricName, number | null>;
 

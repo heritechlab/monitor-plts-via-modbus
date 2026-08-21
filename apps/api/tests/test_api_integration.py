@@ -98,7 +98,8 @@ async def test_ingest_duplicate_latest_and_partial_batch() -> None:
             )
             assert registers.status_code == 200
             assert registers.json()["serial_requests_added"] == 0
-            assert registers.json()["summary"]["known"] == 8
+            # Bertambah dari 8 setelah 0x3000/0x3008/0x300A/0x3016 teridentifikasi.
+            assert registers.json()["summary"]["known"] == 12
 
             # Endpoint membucket per hari LOKAL device (Asia/Jakarta), jadi tanggal
             # acuan harus lokal juga. Memakai tanggal UTC membuat test merah setiap

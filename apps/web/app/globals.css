@@ -139,6 +139,22 @@ a { color: inherit; text-decoration: none; }
 h1 { margin: 0; font-size: clamp(25px, 5vw, 40px); line-height: 1.05; letter-spacing: -.04em; }
 .subtitle { margin: 9px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
 .status-pill { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--border); border-radius: 999px; padding: 8px 11px; color: var(--muted); font-size: 11px; white-space: nowrap; background: color-mix(in srgb, var(--text) 2%, transparent); }
+.header-status { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.source-pill {
+  display: inline-flex; align-items: center; gap: 9px;
+  border: 1px solid var(--border); border-radius: 14px; padding: 8px 13px;
+  background: color-mix(in srgb, var(--text) 2%, transparent);
+  white-space: nowrap;
+}
+.source-pill strong { display: block; font-size: 13px; letter-spacing: -.01em; }
+.source-pill span { display: block; margin-top: 2px; color: var(--muted); font-size: 10px; }
+/* Warna mengikuti konvensi status yang sudah dipakai di dashboard:
+   hijau = berjalan dari sumber sendiri, amber = perlu diperhatikan. */
+.source-pill.on-battery { border-color: color-mix(in srgb, var(--green) 40%, transparent); }
+.source-pill.on-battery > svg { color: var(--green); }
+.source-pill.on-grid { border-color: color-mix(in srgb, var(--amber) 45%, transparent); }
+.source-pill.on-grid > svg { color: var(--amber); }
+.source-pill.on-grid strong { color: var(--amber); }
 .status-dot { width: 7px; height: 7px; border-radius: 999px; background: var(--muted); }
 .online .status-dot { background: var(--green); box-shadow: 0 0 12px var(--green); }
 .degraded .status-dot { background: var(--amber); box-shadow: 0 0 10px var(--amber); }

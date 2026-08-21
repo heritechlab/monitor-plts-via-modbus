@@ -11,6 +11,33 @@ from app.db.models import Device, InverterTelemetry
 from app.services.analytics import as_utc
 
 KNOWN_REGISTERS: dict[str, dict[str, Any]] = {
+    # Teridentifikasi lewat uji colok-lepas input PLN: keempatnya berubah serempak
+    # saat sumber beban berpindah, sedangkan korelasi biasa tidak bisa menemukannya
+    # karena nilainya konstan nol selama input PLN terputus.
+    "0x3000": {
+        "name": "Tegangan input PLN",
+        "unit": "V",
+        "scale": "raw / 10",
+        "metric": "grid_voltage_v",
+    },
+    "0x3008": {
+        "name": "Frekuensi input PLN",
+        "unit": "Hz",
+        "scale": "raw / 10",
+        "metric": "grid_frequency_hz",
+    },
+    "0x300A": {
+        "name": "Sumber daya aktif",
+        "unit": "1=PLN, 2=baterai",
+        "scale": "kode mentah",
+        "metric": "grid_active",
+    },
+    "0x3016": {
+        "name": "SOC estimasi inverter",
+        "unit": "%",
+        "scale": "raw (= 30 x tegangan baterai - 716)",
+        "metric": "inverter_soc_percent",
+    },
     "0x3001": {
         "name": "Tegangan output AC",
         "unit": "V",
