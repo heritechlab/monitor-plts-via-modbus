@@ -155,6 +155,11 @@ h1 { margin: 0; font-size: clamp(25px, 5vw, 40px); line-height: 1.05; letter-spa
 .source-pill.on-grid { border-color: color-mix(in srgb, var(--amber) 45%, transparent); }
 .source-pill.on-grid > svg { color: var(--amber); }
 .source-pill.on-grid strong { color: var(--amber); }
+/* Baterai aktif, tapi PLN terpasang & stand by (belum menyuplai beban) —
+   biru netral, beda dari hijau "full inverter" murni dan amber "PLN aktif". */
+.source-pill.on-battery-standby { border-color: color-mix(in srgb, var(--blue) 40%, transparent); }
+.source-pill.on-battery-standby > svg { color: var(--green); }
+.source-pill.on-battery-standby span { color: var(--blue); }
 .status-dot { width: 7px; height: 7px; border-radius: 999px; background: var(--muted); }
 .online .status-dot { background: var(--green); box-shadow: 0 0 12px var(--green); }
 .degraded .status-dot { background: var(--amber); box-shadow: 0 0 10px var(--amber); }

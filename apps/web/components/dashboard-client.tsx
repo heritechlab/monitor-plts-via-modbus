@@ -170,6 +170,16 @@ export function DashboardClient({ deviceSlug }: { deviceSlug: string }) {
   const metrics = latest?.telemetry?.metrics;
   const gridActive = metrics?.grid_active;
   const onGrid = gridActive === null || gridActive === undefined ? null : gridActive >= 0.5;
+  // Register tegangan/frekuensi PLN terus terukur oleh inverter selepas kabel
+  // tersambung, TERLEPAS dari siapa yang sedang menyuplai beban — dibuktikan
+  // lapangan: mode battery-priority tetap melaporkan ~222V/49,9Hz walau
+  // grid_active masih menunjuk baterai. Jadi "PLN terpasang" harus dibaca dari
+  // tegangannya sendiri, bukan disamakan dengan grid_active. Ambang 100V jauh
+  // dari kedua kondisi nyata yang sudah teramati: ~9V saat kabel dicabut,
+  // ~220V saat tersambung (aktif maupun standby).
+  const gridVoltage = metrics?.grid_voltage_v;
+  const gridDetected =
+    gridVoltage === null || gridVoltage === undefined ? null : gridVoltage > 100;
   const pv = power(metrics?.pv_power_w);
   const output = apparentPower(metrics?.ac_output_power_w);
   const cards = useMemo(
@@ -190,33 +200,41 @@ export function DashboardClient({ deviceSlug }: { deviceSlug: string }) {
         caption: "Estimasi dari tegangan • bukan coulomb counting",
         icon: BatteryMedium,
       },
-      // Kartu PLN selalu tampil begitu gateway mengirim field ini (bukan hanya saat
-      // aktif) supaya jelas ini kondisi "PLN memang tidak terpasang", bukan sekadar
-      // sedang tidak dipakai. Saat tidak aktif nilainya dipaksa 0 — pembacaan mentah
-      // inverter untuk tegangan PLN saat kabel dicabut adalah tegangan bocoran ~9V
-      // yang tidak berarti apa-apa, jadi ditampilkan sebagai 0 seperti panel inverter.
-      ...(onGrid !== null
+      // Kartu PLN selalu menampilkan angka mentah dari decoder apa adanya — TIDAK
+      // dipaksa 0 saat baterai yang aktif, karena register ini tetap terukur real
+      // selama kabel PLN tersambung meski sedang standby (lihat catatan gridDetected
+      // di atas). Redup hanya kalau tegangannya sendiri menunjukkan kabel memang
+      // tidak tersambung.
+      ...(gridDetected !== null
         ? [
             {
               label: "Tegangan PLN",
-              value: number(onGrid ? metrics?.grid_voltage_v : 0, 1),
+              value: number(metrics?.grid_voltage_v, 1),
               unit: "V",
-              caption: onGrid ? undefined : "PLN tidak terpasang",
+              caption: gridDetected
+                ? onGrid
+                  ? undefined
+                  : "Standby • belum menyuplai beban"
+                : "PLN tidak terpasang",
               icon: PlugZap,
-              muted: !onGrid,
+              muted: !gridDetected,
             },
             {
               label: "Frekuensi PLN",
-              value: number(onGrid ? metrics?.grid_frequency_hz : 0, 1),
+              value: number(metrics?.grid_frequency_hz, 1),
               unit: "Hz",
-              caption: onGrid ? undefined : "PLN tidak terpasang",
+              caption: gridDetected
+                ? onGrid
+                  ? undefined
+                  : "Standby • belum menyuplai beban"
+                : "PLN tidak terpasang",
               icon: Activity,
-              muted: !onGrid,
+              muted: !gridDetected,
             },
           ]
         : []),
     ],
-    [daily, metrics, onGrid, output, pv],
+    [daily, gridDetected, metrics, onGrid, output, pv],
   );
 
   return (
@@ -231,14 +249,18 @@ export function DashboardClient({ deviceSlug }: { deviceSlug: string }) {
         </div>
         <div className="header-status">
           {onGrid !== null && (
-            <div className={`source-pill ${onGrid ? "on-grid" : "on-battery"}`}>
+            <div
+              className={`source-pill ${onGrid ? "on-grid" : gridDetected ? "on-battery-standby" : "on-battery"}`}
+            >
               {onGrid ? <PlugZap size={15} /> : <BatteryMedium size={15} />}
               <div>
                 <strong>{onGrid ? "PLN" : "Baterai"}</strong>
                 <span>
                   {onGrid
                     ? `${number(metrics?.grid_voltage_v, 1)} V • ${number(metrics?.grid_frequency_hz, 1)} Hz`
-                    : "PLN tidak terpasang • full inverter"}
+                    : gridDetected
+                      ? `PLN standby ${number(metrics?.grid_voltage_v, 0)} V • belum dipakai`
+                      : "PLN tidak terpasang • full inverter"}
                 </span>
               </div>
             </div>
