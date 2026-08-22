@@ -16,7 +16,14 @@ import type { HistoryPoint, HistoryResponse } from "@/lib/types";
 
 const PAGE_SIZE_OPTIONS = [50, 100];
 
-type SortKey = "recorded_at" | "pv_power_w" | "ac_output_power_w" | "battery_voltage_v" | "inverter_temperature_c";
+type SortKey =
+  | "recorded_at"
+  | "pv_voltage_v"
+  | "pv_current_a"
+  | "pv_power_w"
+  | "ac_output_power_w"
+  | "battery_voltage_v"
+  | "inverter_temperature_c";
 type SortDirection = "asc" | "desc";
 
 interface SortHeaderProps {
@@ -237,9 +244,9 @@ export function HistoryClient({ deviceSlug }: { deviceSlug: string }) {
               : `${number(totalPoints, 0)} titik`}
           </span>
         </div>
-        <div className="table-wrap"><table><thead><tr><th><SortHeader label="Waktu" targetKey="recorded_at" currentKey={sortKey} direction={sortDirection} onSort={handleSort} /></th><th><SortHeader label="PV" targetKey="pv_power_w" currentKey={sortKey} direction={sortDirection} onSort={handleSort} /></th><th><SortHeader label="Beban estimasi" targetKey="ac_output_power_w" currentKey={sortKey} direction={sortDirection} onSort={handleSort} /></th><th><SortHeader label="Baterai" targetKey="battery_voltage_v" currentKey={sortKey} direction={sortDirection} onSort={handleSort} /></th><th>Beban</th><th><SortHeader label="Suhu" targetKey="inverter_temperature_c" currentKey={sortKey} direction={sortDirection} onSort={handleSort} /></th></tr></thead><tbody>
-          {paginatedPoints.map((point) => <tr key={point.recorded_at}><td>{dateTime(point.recorded_at)}</td><td>{number(point.pv_power_w, 1)} W</td><td>{number(point.ac_output_power_w, 1)} VA</td><td>{number(point.battery_voltage_v, 1)} V</td><td>{number(point.load_percent, 0)}%</td><td>{number(point.inverter_temperature_c, 0)} °C</td></tr>)}
-          {!loading && !error && paginatedPoints.length === 0 && <tr><td className="table-empty" colSpan={6}>Belum ada data pada rentang ini.</td></tr>}
+        <div className="table-wrap"><table><thead><tr><th><SortHeader label="Waktu" targetKey="recorded_at" currentKey={sortKey} direction={sortDirection} onSort={handleSort} /></th><th><SortHeader label="Tegangan PV" targetKey="pv_voltage_v" currentKey={sortKey} direction={sortDirection} onSort={handleSort} /></th><th><SortHeader label="Arus PV" targetKey="pv_current_a" currentKey={sortKey} direction={sortDirection} onSort={handleSort} /></th><th><SortHeader label="PV" targetKey="pv_power_w" currentKey={sortKey} direction={sortDirection} onSort={handleSort} /></th><th><SortHeader label="Beban estimasi" targetKey="ac_output_power_w" currentKey={sortKey} direction={sortDirection} onSort={handleSort} /></th><th><SortHeader label="Baterai" targetKey="battery_voltage_v" currentKey={sortKey} direction={sortDirection} onSort={handleSort} /></th><th>Beban</th><th><SortHeader label="Suhu" targetKey="inverter_temperature_c" currentKey={sortKey} direction={sortDirection} onSort={handleSort} /></th></tr></thead><tbody>
+          {paginatedPoints.map((point) => <tr key={point.recorded_at}><td>{dateTime(point.recorded_at)}</td><td>{number(point.pv_voltage_v, 1)} V</td><td>{number(point.pv_current_a, 1)} A</td><td>{number(point.pv_power_w, 1)} W</td><td>{number(point.ac_output_power_w, 1)} VA</td><td>{number(point.battery_voltage_v, 1)} V</td><td>{number(point.load_percent, 0)}%</td><td>{number(point.inverter_temperature_c, 0)} °C</td></tr>)}
+          {!loading && !error && paginatedPoints.length === 0 && <tr><td className="table-empty" colSpan={8}>Belum ada data pada rentang ini.</td></tr>}
         </tbody></table></div>
         {totalPoints > 0 && (
           <div className="history-filters" style={{ marginTop: 14 }}>
