@@ -41,6 +41,10 @@ TO_BATTERY_THRESHOLD = 25.8
 # Selisih yang dianggap layak disorot; di bawah ini masih wajar sebagai
 # histeresis atau perbedaan titik ukur.
 TOLERANCE_V = 0.3
+# Di bawah jumlah ini, hasilnya dilaporkan sebagai petunjuk, bukan kesimpulan.
+# Sistem ini nyaris selalu memakai baterai, jadi perpindahan sumber jarang
+# terjadi dengan sendirinya -- satu-dua kejadian tidak menegakkan pola apa pun.
+MIN_EVENTS_FOR_VERDICT = 5
 
 
 async def main(hours: int) -> None:
@@ -133,21 +137,32 @@ async def main(hours: int) -> None:
     print("\n" + "=" * 78)
     print("BACAAN")
     print("=" * 78)
-    if to_grid:
-        voltages = [c.battery_voltage_v for _p, c in to_grid]
-        above = sum(1 for v in voltages if v - TO_GRID_THRESHOLD > TOLERANCE_V)
-        if above > len(to_grid) / 2:
-            print("Sebagian besar perpindahan ke PLN terjadi saat tegangan baterai")
-            print("masih di atas ambang A7. Ini mendukung keluhan Anda: inverter")
-            print("tidak memakai ambang itu sebagai satu-satunya penentu.")
-            print()
-            print("Kemungkinan penyebab: setelan A0=D3 (prioritas) membuat inverter")
-            print("langsung memakai PLN begitu tersedia, dan ambang A7 hanya berlaku")
-            print("pada mode prioritas lain. Membandingkan dengan manual akan")
-            print("memastikannya.")
-        else:
-            print("Perpindahan ke PLN umumnya terjadi di sekitar atau di bawah ambang")
-            print("A7, jadi inverter tampak mematuhi setelannya.")
+    if not to_grid:
+        return
+
+    voltages = [c.battery_voltage_v for _p, c in to_grid]
+    above = sum(1 for v in voltages if v - TO_GRID_THRESHOLD > TOLERANCE_V)
+
+    if len(to_grid) < MIN_EVENTS_FOR_VERDICT:
+        print(f"Hanya {len(to_grid)} kejadian pada rentang ini -- terlalu sedikit")
+        print("untuk menyimpulkan apa pun. Satu-dua kejadian bisa saja kebetulan,")
+        print("atau justru saat Anda sendiri mencolok input PLN.")
+        print()
+        print(f"Dari yang sedikit itu, {above} terjadi saat tegangan masih di atas")
+        print("A7. Itu petunjuk yang sejalan dengan keluhan Anda, bukan bukti.")
+        print()
+        print("Cara mendapatkan bukti: lakukan uji terkendali seperti waktu kita")
+        print("memetakan register PLN dulu -- colok dan lepas input PLN beberapa")
+        print("kali sambil mencatat waktunya, lalu jalankan skrip ini lagi.")
+        return
+
+    if above > len(to_grid) / 2:
+        print(f"{above} dari {len(to_grid)} perpindahan ke PLN terjadi saat tegangan")
+        print("baterai masih di atas ambang A7. Ini mendukung keluhan Anda: inverter")
+        print("tidak memakai ambang itu sebagai satu-satunya penentu.")
+    else:
+        print("Perpindahan ke PLN umumnya terjadi di sekitar atau di bawah ambang")
+        print("A7, jadi inverter tampak mematuhi setelannya.")
 
 
 if __name__ == "__main__":
