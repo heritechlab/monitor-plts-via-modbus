@@ -34,14 +34,33 @@ from inverter_address_scan import ScanError, read_block
 SETTINGS_ADDRESS = 0x4000
 SETTINGS_COUNT = 32
 
-# Yang sudah cocok dengan besaran yang kita ketahui dari sisi lain.
+# Cocok dengan besaran yang kita ketahui dari sisi lain.
 CONFIRMED = {
     0x4003: ("Rating daya inverter", 1, "W"),
     0x4004: ("Frekuensi nominal", 1, "Hz"),
     0x4005: ("Tegangan nominal AC", 1, "V"),
 }
-# Dugaan: setelan tegangan baterai disimpan per-12V, jadi dikali 2 untuk 24V.
-BATTERY_GUESS = range(0x4008, 0x4014)
+# Skala per-12V TERBUKTI dua kali: operator mencocokkan menu inverternya
+# (2026-08-23), dan manual menyatakannya eksplisit -- "The voltage value in this
+# manual is the voltage of a single battery, the 24V system is 2 batteries".
+# Jadi nilai register disimpan per-12V dan dikali 2 untuk sistem 24 V.
+#
+# Urutan register TIDAK mengikuti urutan kode A di menu; percobaan menggeser
+# alamat tidak pernah mencocokkan A8=500/A9=220 milik manual, jadi pemetaan di
+# bawah ini murni dari kecocokan nilai yang dikonfirmasi operator.
+MENU_CONFIRMED = {
+    0x4008: "A2 -- constant charge, batas atas/full",
+    0x4013: "A7 -- inverter pindah ke PLN (mode d3)",
+}
+# A6 (kembali ke baterai, 25,8 V) cocok dengan DUA register bernilai sama,
+# jadi mana yang benar belum bisa dipastikan dari nilainya saja.
+MENU_AMBIGUOUS = {
+    0x400F: "A6? -- kembali ke baterai (nilai sama dengan 0x4012)",
+    0x4012: "A6? -- kembali ke baterai (nilai sama dengan 0x400F)",
+}
+# Sisanya masih dugaan: ikut skala per-12V yang sudah terbukti, tapi arti
+# tiap alamatnya belum dicocokkan ke menu.
+BATTERY_SCALE = range(0x4008, 0x4014)
 
 
 def render(values: list[int]) -> None:
@@ -54,36 +73,39 @@ def render(values: list[int]) -> None:
     for index, value in enumerate(values):
         address = SETTINGS_ADDRESS + index
         if address in CONFIRMED:
-            label, scale, unit = CONFIRMED[address]
+            _label, scale, unit = CONFIRMED[address]
             reading = f"{value / scale:g} {unit}  <- cocok dengan data kita"
         elif value == 0:
             # Nol tidak masuk akal sebagai ambang tegangan; jangan dipaksa
             # ditafsirkan hanya karena alamatnya berada di kelompok itu.
             reading = "-"
-        elif address in BATTERY_GUESS:
-            reading = (
-                f"DUGAAN ambang baterai: {value / 10 * 2:.1f} V "
-                f"(kalau disimpan per-12V)"
-            )
+        elif address in MENU_CONFIRMED:
+            reading = f"{value / 10 * 2:.1f} V  <- TERBUKTI: {MENU_CONFIRMED[address]}"
+        elif address in MENU_AMBIGUOUS:
+            reading = f"{value / 10 * 2:.1f} V  <- {MENU_AMBIGUOUS[address]}"
+        elif address in BATTERY_SCALE:
+            reading = f"{value / 10 * 2:.1f} V  (skala terbukti, arti belum)"
         else:
             reading = f"/10={value / 10:g}  /100={value / 100:g}"
         print(f"   0x{address:04X}  {value:>6}   {reading}")
 
     print()
     print("=" * 78)
-    print("CARA MEMBUKTIKAN")
+    print("STATUS")
     print("=" * 78)
-    print("Buka menu setelan di layar inverter, lalu cocokkan angkanya dengan")
-    print("kolom di atas. Yang perlu dicari terutama:")
+    print("Skala per-12V TERBUKTI. Manual menyatakannya eksplisit: nilai di menu")
+    print("adalah tegangan satu baterai, dan sistem 24 V memakai dua baterai.")
+    print("Cocok dengan menu inverter yang dibaca operator:")
+    print("   A2 = 28,2 V  -> 0x4008 = 141")
+    print("   A7 = 25,0 V  -> 0x4013 = 125")
     print()
-    print("  - ambang tegangan balik ke PLN (yang Anda keluhkan tidak dipatuhi)")
-    print("  - ambang tegangan potong/low battery")
-    print("  - ambang tegangan selesai charge")
-    print("  - prioritas sumber (setelan A0 yang Anda sebut D3)")
+    print("A6 = 25,8 V cocok dengan DUA register (0x400F dan 0x4012, sama-sama")
+    print("129), jadi mana yang benar belum bisa dipastikan dari nilainya saja.")
+    print("Cara memisahkannya: ubah A6 di menu ke angka lain, baca ulang, lihat")
+    print("register mana yang ikut berubah. Yang diam berarti bukan A6.")
     print()
-    print("Kalau ada angka menu yang cocok persis dengan salah satu baris di atas,")
-    print("kita dapat satu register terbukti. Kalau tidak ada yang cocok, dugaan")
-    print("skala per-12V itu keliru dan kita cari pola lain.")
+    print("Urutan register tidak mengikuti urutan kode A, jadi alamat lain di")
+    print("0x4008-0x4013 belum bisa dipetakan hanya dengan menggeser posisi.")
 
 
 def main() -> None:

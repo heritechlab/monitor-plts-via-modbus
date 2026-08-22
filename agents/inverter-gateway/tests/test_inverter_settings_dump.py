@@ -23,12 +23,27 @@ def test_confirmed_registers_are_marked(capsys) -> None:
     assert output.count("cocok dengan data kita") == 3
 
 
-def test_battery_guess_is_labelled_as_a_guess(capsys) -> None:
-    """Tafsiran yang belum terbukti harus jelas ditandai dugaan."""
+def test_menu_confirmed_registers_cite_their_menu_code(capsys) -> None:
+    """A2 dan A7 dicocokkan langsung ke menu inverter, jadi ditandai terbukti."""
     render(OBSERVED)
     output = capsys.readouterr().out
-    assert "DUGAAN ambang baterai: 28.2 V" in output  # 0x4008 = 141
-    assert "DUGAAN ambang baterai: 23.8 V" in output  # 0x400D = 119
+    assert "28.2 V  <- TERBUKTI: A2" in output  # 0x4008 = 141
+    assert "25.0 V  <- TERBUKTI: A7" in output  # 0x4013 = 125
+
+
+def test_ambiguous_a6_is_not_claimed_on_either_register(capsys) -> None:
+    """Dua register bernilai 129; tak satu pun boleh diklaim sebagai A6."""
+    render(OBSERVED)
+    output = capsys.readouterr().out
+    assert output.count("A6?") == 2
+    assert "TERBUKTI: A6" not in output
+
+
+def test_unmatched_registers_keep_scale_but_not_meaning(capsys) -> None:
+    """Skala sudah terbukti; artinya belum, dan itu harus terbaca jelas."""
+    render(OBSERVED)
+    output = capsys.readouterr().out
+    assert "23.8 V  (skala terbukti, arti belum)" in output  # 0x400D = 119
 
 
 def test_zero_registers_render_without_bogus_scaling(capsys) -> None:
