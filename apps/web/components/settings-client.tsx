@@ -13,7 +13,73 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { MetricCard } from "@/components/metric-card";
 import { apiGet } from "@/lib/api";
 import { dateTime, number } from "@/lib/format";
+import {
+  INVERTER_SETTINGS,
+  SETTINGS_STATUS_LABEL,
+  SETTINGS_VERIFIED_AT,
+  type SettingStatus,
+} from "@/lib/inverter-settings";
 import type { RegisterAnalysisItem, RegisterAnalysisResponse } from "@/lib/types";
+
+function statusClassName(status: SettingStatus): string {
+  if (status === "confirmed") return "setting-status setting-status--confirmed";
+  if (status === "unmapped") return "setting-status setting-status--unmapped";
+  return "setting-status setting-status--pending";
+}
+
+function formatAddress(address: string | string[]): string {
+  return Array.isArray(address) ? address.join(" / ") : address;
+}
+
+function formatRaw(raw: number | [number, number]): string {
+  return Array.isArray(raw) ? raw.join(" / ") : String(raw);
+}
+
+function InverterSettingsPanel() {
+  return (
+    <article className="panel section-gap">
+      <div className="panel-title-row">
+        <h2>Setelan inverter (0x4000)</h2>
+        <span className="panel-note">Referensi manual • diverifikasi {SETTINGS_VERIFIED_AT}</span>
+      </div>
+      <p className="settings-panel-intro">
+        Bukan data live. Gateway produksi hanya membaca blok telemetri (0x3000); baris di bawah
+        berasal dari pembacaan manual blok setelan (0x4000, FC03) yang dicocokkan ke menu fisik
+        di layar inverter. Diperbarui setiap kali ada pembacaan ulang.
+      </p>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Kode</th>
+              <th>Nama</th>
+              <th>Register</th>
+              <th>Nilai terakhir</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {INVERTER_SETTINGS.map((entry) => (
+              <tr key={entry.code}>
+                <td className="register-address">{entry.code}</td>
+                <td className="settings-note-cell">
+                  <strong>{entry.label}</strong>
+                  <span className="register-detail">{entry.note}</span>
+                </td>
+                <td className="register-address">{formatAddress(entry.registerAddress)}</td>
+                <td>
+                  {entry.displayValue}
+                  <span className="register-detail">raw {formatRaw(entry.lastRaw)}</span>
+                </td>
+                <td><span className={statusClassName(entry.status)}>{SETTINGS_STATUS_LABEL[entry.status]}</span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </article>
+  );
+}
 
 const ranges = [1, 6, 12, 24] as const;
 
@@ -153,6 +219,8 @@ export function SettingsClient({ deviceSlug }: { deviceSlug: string }) {
         <div><strong>Mode aman: database-only</strong><span>Tambahan request serial: {data?.serial_requests_added ?? 0}. Dashboard live tidak diperlambat.</span></div>
         <div className="panel-note">Terakhir: {dateTime(data?.latest_recorded_at)}</div>
       </article>
+
+      <InverterSettingsPanel />
 
       {error && <div className="error-state panel section-gap">{error}</div>}
       {!error && <>
