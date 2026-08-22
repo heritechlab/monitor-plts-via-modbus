@@ -1,12 +1,12 @@
 "use client";
 
-import { BarChart3, CalendarDays, Coins, SunMedium } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { BarChart3, CalendarDays, Coins, SunMedium, Trophy, TrendingDown } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import { MetricCard } from "@/components/metric-card";
 import { apiGet } from "@/lib/api";
-import { currency, energy, localDateInput, number } from "@/lib/format";
+import { currency, dayLabel, localDateInput, number } from "@/lib/format";
 import type { MonthlySummary } from "@/lib/types";
 
 export function MonthlyClient({ deviceSlug }: { deviceSlug: string }) {
@@ -30,7 +30,11 @@ export function MonthlyClient({ deviceSlug }: { deviceSlug: string }) {
     { label: "Beban AC estimasi", value: number(data?.ac_load_estimate_kvah, 2), unit: "kVAh", caption: "Bukan energi aktif", icon: BarChart3 },
     { label: "Rata-rata harian", value: number(data?.average_daily_pv_kwh, 2), unit: "kWh", icon: CalendarDays },
     { label: "Nilai produksi PV", value: currency(data?.equivalent_saving_idr), unit: "", caption: "Estimasi dari energi PV • bukan audit PLN", icon: Coins },
+    { label: "Hari terbaik", value: number(data?.best_day?.pv_energy_kwh, 3), unit: "kWh", caption: dayLabel(data?.best_day?.date), icon: Trophy },
+    { label: "Hari terendah", value: number(data?.lowest_day?.pv_energy_kwh, 3), unit: "kWh", caption: dayLabel(data?.lowest_day?.date), icon: TrendingDown },
   ];
+  // Terbaru dulu, supaya produksi hari-hari terakhir langsung terlihat tanpa scroll.
+  const daysNewestFirst = useMemo(() => [...(data?.days ?? [])].reverse(), [data]);
   return (
     <div>
       <header className="page-header">
@@ -60,10 +64,40 @@ export function MonthlyClient({ deviceSlug }: { deviceSlug: string }) {
             <div className="empty">Belum ada data bulan ini.</div>
           )}
         </article>
-        <section className="grid two-column section-gap">
-          <article className="panel"><div className="panel-title-row"><h2>Hari terbaik</h2></div><div className="summary-item"><span>{data?.best_day?.date ?? "—"}</span><strong>{energy(data?.best_day?.pv_energy_kwh)}</strong></div></article>
-          <article className="panel"><div className="panel-title-row"><h2>Hari terendah</h2></div><div className="summary-item"><span>{data?.lowest_day?.date ?? "—"}</span><strong>{energy(data?.lowest_day?.pv_energy_kwh)}</strong></div></article>
-        </section>
+        <article className="panel section-gap">
+          <div className="panel-title-row">
+            <h2>Rincian per hari</h2>
+            <span className="panel-note">Terbaru di atas</span>
+          </div>
+          {daysNewestFirst.length ? (
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Tanggal</th>
+                    <th>Produksi PV</th>
+                    <th>Beban AC estimasi</th>
+                    <th>Cakupan data</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {daysNewestFirst.map((day) => (
+                    <tr key={day.date}>
+                      <td>{dayLabel(day.date)}</td>
+                      <td className={day.sample_count > 0 ? undefined : "warning"}>
+                        {day.sample_count > 0 ? `${number(day.pv_energy_kwh, 3)} kWh` : "Belum ada data"}
+                      </td>
+                      <td>{day.sample_count > 0 ? `${number(day.ac_load_estimate_kvah, 3)} kVAh` : "—"}</td>
+                      <td>{day.sample_count > 0 ? `${number(day.pv_coverage_percent, 0)}%` : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="compact-empty">Belum ada data bulan ini.</div>
+          )}
+        </article>
       </>}
     </div>
   );

@@ -6,8 +6,10 @@ import { BmsPowerChart } from "@/components/bms-power-chart";
 import { apiGet } from "@/lib/api";
 import { dateTime, localDateInput, number } from "@/lib/format";
 import {
+  buildCustomHourWindow,
   buildHistoryWindow,
   historyRanges,
+  resolutionForDuration,
   type HistoryRangeKey,
 } from "@/lib/history-range";
 import type { BmsHistoryPoint, BmsHistoryResponse } from "@/lib/types";
@@ -46,10 +48,15 @@ function SortHeader({ label, targetKey, currentKey, direction, onSort }: SortHea
   );
 }
 
+type RangeMode = "custom" | "preset";
+
 export function BmsHistoryClient({ deviceSlug }: { deviceSlug: string }) {
   const today = localDateInput();
   const [selectedDate, setSelectedDate] = useState(today);
   const [range, setRange] = useState<HistoryRangeKey>("6h");
+  const [mode, setMode] = useState<RangeMode>("custom");
+  const [customStart, setCustomStart] = useState("06:00");
+  const [customEnd, setCustomEnd] = useState("18:00");
   const [data, setData] = useState<BmsHistoryResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -64,12 +71,16 @@ export function BmsHistoryClient({ deviceSlug }: { deviceSlug: string }) {
     setError(null);
 
     try {
-      const selected = historyRanges[range];
-      const { start, end } = buildHistoryWindow(selectedDate, range);
+      const { start, end } =
+        mode === "custom"
+          ? buildCustomHourWindow(selectedDate, customStart, customEnd)
+          : buildHistoryWindow(selectedDate, range);
+      const resolution =
+        mode === "custom" ? resolutionForDuration(end.getTime() - start.getTime()) : historyRanges[range].resolution;
       setData(
         await apiGet<BmsHistoryResponse>(
           `/api/v1/bms-devices/${deviceSlug}/telemetry?from=${encodeURIComponent(start.toISOString())}` +
-            `&to=${encodeURIComponent(end.toISOString())}&resolution=${selected.resolution}`,
+            `&to=${encodeURIComponent(end.toISOString())}&resolution=${resolution}`,
           { signal, cacheTtlSeconds: 30 },
         ),
       );
@@ -80,7 +91,7 @@ export function BmsHistoryClient({ deviceSlug }: { deviceSlug: string }) {
     } finally {
       if (!signal.aborted) setLoading(false);
     }
-  }, [deviceSlug, range, selectedDate]);
+  }, [deviceSlug, mode, range, selectedDate, customStart, customEnd]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -149,21 +160,67 @@ export function BmsHistoryClient({ deviceSlug }: { deviceSlug: string }) {
           />
         </label>
         <div className="history-filter-group">
-          <span>Rentang</span>
+          <span>Mode rentang</span>
           <div className="controls">
-            {(Object.keys(historyRanges) as HistoryRangeKey[]).map((key) => (
-              <button
-                className={`control-button ${range === key ? "active" : ""}`}
-                key={key}
-                type="button"
-                aria-pressed={range === key}
-                onClick={() => setRange(key)}
-              >
-                {historyRanges[key].label}
-              </button>
-            ))}
+            <button
+              className={`control-button ${mode === "custom" ? "active" : ""}`}
+              type="button"
+              aria-pressed={mode === "custom"}
+              onClick={() => setMode("custom")}
+            >
+              Jam tertentu
+            </button>
+            <button
+              className={`control-button ${mode === "preset" ? "active" : ""}`}
+              type="button"
+              aria-pressed={mode === "preset"}
+              onClick={() => setMode("preset")}
+            >
+              Rentang relatif
+            </button>
           </div>
         </div>
+        {mode === "custom" ? (
+          <>
+            <label className="history-filter-group">
+              <span>Jam mulai</span>
+              <input
+                aria-label="Jam mulai"
+                className="control"
+                type="time"
+                value={customStart}
+                onChange={(event) => setCustomStart(event.target.value)}
+              />
+            </label>
+            <label className="history-filter-group">
+              <span>Jam akhir</span>
+              <input
+                aria-label="Jam akhir"
+                className="control"
+                type="time"
+                value={customEnd}
+                onChange={(event) => setCustomEnd(event.target.value)}
+              />
+            </label>
+          </>
+        ) : (
+          <div className="history-filter-group">
+            <span>Rentang</span>
+            <div className="controls">
+              {(Object.keys(historyRanges) as HistoryRangeKey[]).map((key) => (
+                <button
+                  className={`control-button ${range === key ? "active" : ""}`}
+                  key={key}
+                  type="button"
+                  aria-pressed={range === key}
+                  onClick={() => setRange(key)}
+                >
+                  {historyRanges[key].label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
       <article className="panel chart-panel">
         <div className="panel-title-row"><h2>State of charge</h2><span className="panel-note">{data ? `${dateTime(data.from)} — ${dateTime(data.to)}` : loading ? "Memuat..." : "—"}</span></div>

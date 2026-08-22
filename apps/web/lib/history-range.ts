@@ -43,3 +43,40 @@ export function buildHistoryWindow(
 
   return { start, end };
 }
+
+export type ResolutionKey = "1m" | "5m" | "15m" | "1h";
+
+export function resolutionForDuration(durationMs: number): ResolutionKey {
+  const hours = durationMs / 3_600_000;
+  if (hours <= 6) return "1m";
+  if (hours <= 24) return "5m";
+  if (hours <= 24 * 14) return "15m";
+  return "1h";
+}
+
+const timePattern = /^\d{2}:\d{2}$/;
+
+/** Jendela waktu jam-tertentu pada TANGGAL TERPILIH (bukan relatif ke sekarang),
+ * supaya kurva produksi hari itu tetap terlihat lengkap kapan pun halaman dibuka —
+ * berbeda dari rentang preset "N jam terakhir" yang bergantung waktu akses. */
+export function buildCustomHourWindow(
+  selectedDate: string,
+  startTime: string,
+  endTime: string,
+): { start: Date; end: Date } {
+  if (!datePattern.test(selectedDate)) {
+    throw new Error("Format tanggal tidak valid");
+  }
+  if (!timePattern.test(startTime) || !timePattern.test(endTime)) {
+    throw new Error("Format jam tidak valid");
+  }
+  const start = new Date(`${selectedDate}T${startTime}:00${jakartaOffset}`);
+  const end = new Date(`${selectedDate}T${endTime}:00${jakartaOffset}`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    throw new Error("Jam tidak valid");
+  }
+  if (end <= start) {
+    throw new Error("Jam akhir harus setelah jam mulai");
+  }
+  return { start, end };
+}

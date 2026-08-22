@@ -44,6 +44,16 @@ export function dateTime(value: string | null | undefined): string {
   }).format(new Date(value));
 }
 
+export function dayLabel(value: string | null | undefined): string {
+  if (!value) return "—";
+  return new Intl.DateTimeFormat("id-ID", {
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+    timeZone: "Asia/Jakarta",
+  }).format(new Date(`${value}T00:00:00+07:00`));
+}
+
 export function timeOnly(value: string): string {
   return new Intl.DateTimeFormat("id-ID", {
     hour: "2-digit",
