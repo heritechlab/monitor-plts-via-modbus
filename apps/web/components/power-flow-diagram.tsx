@@ -69,6 +69,26 @@ function FlowNode({
   );
 }
 
+// Elbow dua-segmen antara sudut node dan tepi kotak inverter, ditulis dengan
+// urutan titik yang cocok dengan ARAH aliran -- SVG hanya bisa memasang
+// panah (marker-end) di ujung AKHIR path, jadi arah trace path itu sendiri
+// yang menentukan ke mana panah menghadap.
+//   "into"  = dari sudut node menuju inverter (produksi PV, PLN menyuplai,
+//             baterai discharge)
+//   "out"   = dari inverter menuju sudut node (beban selalu begini; baterai
+//             begini juga saat sedang diisi)
+function elbowPath(
+  corner: { x: number; y: number },
+  edgeX: number,
+  centerY: number,
+  direction: "into" | "out",
+): string {
+  if (direction === "into") {
+    return `M ${corner.x} ${corner.y} V ${centerY} H ${edgeX}`;
+  }
+  return `M ${edgeX} ${centerY} H ${corner.x} V ${corner.y}`;
+}
+
 export function PowerFlowDiagram({
   pvWattW,
   gridVoltageV,
@@ -89,27 +109,45 @@ export function PowerFlowDiagram({
   const centerLeftEdge = center.x - 8;
   const centerRightEdge = center.x + 8;
 
+  const batteryDirection: "into" | "out" = batteryCharging ? "out" : "into";
+  const batteryTone = batteryCharging ? "green" : "amber";
+
   return (
     <div className="power-flow">
       <svg className="power-flow-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        <defs>
+          <marker id="power-flow-arrow-green" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 Z" fill="var(--green)" />
+          </marker>
+          <marker id="power-flow-arrow-blue" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 Z" fill="var(--blue)" />
+          </marker>
+          <marker id="power-flow-arrow-amber" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 Z" fill="var(--amber)" />
+          </marker>
+        </defs>
         <path
           className={`power-flow-path ${pvFlowing ? "power-flow-path--active" : ""}`}
-          d={`M ${pv.x} ${pv.y} V ${center.y} H ${centerLeftEdge}`}
+          d={elbowPath(pv, centerLeftEdge, center.y, "into")}
+          markerEnd={pvFlowing ? "url(#power-flow-arrow-green)" : undefined}
           pathLength={100}
         />
         <path
           className={`power-flow-path ${gridFlowing ? "power-flow-path--active" : ""}`}
-          d={`M ${grid.x} ${grid.y} V ${center.y} H ${centerRightEdge}`}
+          d={elbowPath(grid, centerRightEdge, center.y, "into")}
+          markerEnd={gridFlowing ? "url(#power-flow-arrow-blue)" : undefined}
           pathLength={100}
         />
         <path
           className={`power-flow-path ${batteryFlowing ? "power-flow-path--active" : ""}`}
-          d={`M ${battery.x} ${battery.y} V ${center.y} H ${centerLeftEdge}`}
+          d={elbowPath(battery, centerLeftEdge, center.y, batteryDirection)}
+          markerEnd={batteryFlowing ? `url(#power-flow-arrow-${batteryTone})` : undefined}
           pathLength={100}
         />
         <path
           className={`power-flow-path ${loadFlowing ? "power-flow-path--active" : ""}`}
-          d={`M ${load.x} ${load.y} V ${center.y} H ${centerRightEdge}`}
+          d={elbowPath(load, centerRightEdge, center.y, "out")}
+          markerEnd={loadFlowing ? "url(#power-flow-arrow-green)" : undefined}
           pathLength={100}
         />
       </svg>
