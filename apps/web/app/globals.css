@@ -166,6 +166,7 @@ h1 { margin: 0; font-size: clamp(25px, 5vw, 40px); line-height: 1.05; letter-spa
 .offline .status-dot { background: var(--red); box-shadow: 0 0 10px var(--red); }
 .grid { display: grid; gap: 12px; }
 .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.dashboard-kpi-grid { gap: 8px; }
 /* Lebar kartu mengikuti isinya (auto-fit), bukan jumlah kolom tetap seperti
    metric-grid -- baris KPI di atas selalu punya banyak kartu jadi wajar dibagi
    6 kolom di layar lebar, tapi bagian BMS bisa cuma berisi 1-2 pack, dan kalau
@@ -184,6 +185,14 @@ h1 { margin: 0; font-size: clamp(25px, 5vw, 40px); line-height: 1.05; letter-spa
 }
 .metric-card { min-height: 128px; padding: 16px; position: relative; overflow: hidden; container-type: inline-size; }
 .metric-card--muted { opacity: .55; }
+/* Dipakai grid KPI besar (dashboard utama) -- kartu jauh lebih pendek supaya
+   12 kartu dalam dua baris tidak mendominasi tinggi halaman. Bukan default
+   metric-card karena halaman lain (mis. /monthly, /battery) yang kartunya
+   lebih sedikit tidak perlu sepadat ini. */
+.metric-card--compact { min-height: 84px; padding: 10px; }
+.metric-card--compact .metric-icon { width: 13px; height: 13px; padding: 4px; }
+.metric-card--compact .metric-value { margin-top: 6px; font-size: clamp(16px, 10cqw, 24px); line-height: 1.05; }
+.metric-card--compact .metric-caption { margin-top: 2px; line-height: 1.25; }
 .metric-card--muted .metric-icon { color: var(--muted); background: color-mix(in srgb, var(--muted) 12%, transparent); }
 .metric-card::after { content: ""; position: absolute; inset: auto -24px -42px auto; width: 90px; height: 90px; border-radius: 50%; background: color-mix(in srgb, var(--green) 4%, transparent); }
 .metric-label { display: flex; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 11px; }

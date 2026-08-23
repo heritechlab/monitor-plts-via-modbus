@@ -297,8 +297,8 @@ export function DashboardClient({ deviceSlug }: { deviceSlug: string }) {
         </div>
       </header>
 
-      <section className="grid metric-grid">
-        {cards.map((card) => <MetricCard {...card} key={card.label} />)}
+      <section className="grid metric-grid dashboard-kpi-grid">
+        {cards.map((card) => <MetricCard {...card} compact key={card.label} />)}
       </section>
 
       <section className="panel section-gap">
