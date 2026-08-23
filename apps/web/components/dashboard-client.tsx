@@ -306,12 +306,12 @@ export function DashboardClient({ deviceSlug }: { deviceSlug: string }) {
           <h2>Status baterai (BMS)</h2>
           <Link className="panel-note" href="/battery">Lihat detail sel →</Link>
         </div>
-        <div className="grid metric-grid">
+        <div className="grid bms-pack-grid">
           {bmsPacksForDisplay.map((pack) => {
             const charging = pack.packCurrentA !== null && pack.packCurrentA >= 0;
             const directionClass = pack.packCurrentA === null ? "" : charging ? "good" : "danger";
             return (
-              <article className={`metric-card ${pack.isMock ? "metric-card--muted" : ""}`} key={pack.slug}>
+              <article className={`metric-card bms-pack-card ${pack.isMock ? "metric-card--muted" : ""}`} key={pack.slug}>
                 <div className="metric-label">
                   <span>{pack.name}</span>
                   <BatteryCharging className="metric-icon" size={16} />

@@ -166,6 +166,11 @@ h1 { margin: 0; font-size: clamp(25px, 5vw, 40px); line-height: 1.05; letter-spa
 .offline .status-dot { background: var(--red); box-shadow: 0 0 10px var(--red); }
 .grid { display: grid; gap: 12px; }
 .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+/* Lebar kartu mengikuti isinya (auto-fit), bukan jumlah kolom tetap seperti
+   metric-grid -- baris KPI di atas selalu punya banyak kartu jadi wajar dibagi
+   6 kolom di layar lebar, tapi bagian BMS bisa cuma berisi 1-2 pack, dan kalau
+   ikut breakpoint yang sama kartunya jadi sempit tak semestinya. */
+.bms-pack-grid { grid-template-columns: repeat(auto-fit, minmax(200px, 260px)); }
 .metric-card, .panel {
   border: 1px solid var(--border); border-radius: 16px;
   background: linear-gradient(145deg, var(--card-gradient-from), var(--card-gradient-to));
@@ -182,6 +187,11 @@ h1 { margin: 0; font-size: clamp(25px, 5vw, 40px); line-height: 1.05; letter-spa
 .metric-card--muted .metric-icon { color: var(--muted); background: color-mix(in srgb, var(--muted) 12%, transparent); }
 .metric-card::after { content: ""; position: absolute; inset: auto -24px -42px auto; width: 90px; height: 90px; border-radius: 50%; background: color-mix(in srgb, var(--green) 4%, transparent); }
 .metric-label { display: flex; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 11px; }
+/* Nama pack BMS bisa panjang (mis. dari model perangkat) dan bikin kartu
+   melar ke bawah kalau dibiarkan membungkus dua baris -- dipotong satu baris
+   di sini saja, bukan di semua metric-card, supaya label pendek lain (mis.
+   "Beban AC estimasi") tetap membungkus wajar seperti biasa. */
+.bms-pack-card .metric-label span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .metric-icon { color: var(--green); background: color-mix(in srgb, var(--green) 10%, transparent); border-radius: 8px; padding: 5px; box-sizing: content-box; }
 .metric-value { margin-top: 19px; font-size: clamp(18px, 12cqw, 32px); font-weight: 680; letter-spacing: -.045em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .metric-unit { margin-left: 5px; color: var(--muted); font-size: 13px; font-weight: 500; letter-spacing: 0; }
