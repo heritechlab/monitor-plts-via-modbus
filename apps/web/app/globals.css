@@ -196,13 +196,19 @@ h1 { margin: 0; font-size: clamp(25px, 5vw, 40px); line-height: 1.05; letter-spa
 .metric-value { margin-top: 19px; font-size: clamp(18px, 12cqw, 32px); font-weight: 680; letter-spacing: -.045em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .metric-unit { margin-left: 5px; color: var(--muted); font-size: 13px; font-weight: 500; letter-spacing: 0; }
 .metric-caption { margin-top: 6px; color: var(--muted); font-size: 10px; }
-.panel { padding: 18px; }
-.panel-title-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 16px; }
+.panel { padding: 16px; }
+.panel-title-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 12px; }
 .panel h2 { margin: 0; font-size: 14px; letter-spacing: -.01em; }
 .panel-note { color: var(--muted); font-size: 10px; }
 .chart-panel { min-height: 330px; }
 .chart-wrap { height: 265px; width: 100%; }
-.section-gap { margin-top: 14px; }
+.section-gap { margin-top: 10px; }
+/* Pack BMS punya isi lebih ringkas (SOC besar + dua baris keterangan) daripada
+   kartu KPI generik, jadi tidak perlu tinggi minimum 128px milik metric-card --
+   di layar yang kartu ini sengaja dilebarkan (bms-pack-grid), tinggi 128px
+   berlebih dan membuat panel ini makan tempat vertikal tanpa perlu. */
+.bms-pack-card { min-height: 96px; padding: 12px; }
+.bms-pack-card .metric-value { margin-top: 10px; }
 .energy-flow { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; align-items: center; gap: 8px; min-height: 104px; }
 .flow-node { text-align: center; }
 .flow-node-icon { display: grid; place-items: center; width: 40px; height: 40px; margin: 0 auto 9px; border-radius: 13px; color: var(--green); background: color-mix(in srgb, var(--green) 9%, transparent); border: 1px solid color-mix(in srgb, var(--green) 12%, transparent); }
