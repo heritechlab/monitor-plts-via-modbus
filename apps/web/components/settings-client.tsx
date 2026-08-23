@@ -14,12 +14,17 @@ import { MetricCard } from "@/components/metric-card";
 import { apiGet } from "@/lib/api";
 import { dateTime, number } from "@/lib/format";
 import {
+  formatSettingValue,
   INVERTER_SETTINGS,
+  SETTINGS_MAPPING_VERIFIED_AT,
   SETTINGS_STATUS_LABEL,
-  SETTINGS_VERIFIED_AT,
   type SettingStatus,
 } from "@/lib/inverter-settings";
-import type { RegisterAnalysisItem, RegisterAnalysisResponse } from "@/lib/types";
+import type {
+  InverterSettingsLatestResponse,
+  RegisterAnalysisItem,
+  RegisterAnalysisResponse,
+} from "@/lib/types";
 
 function statusClassName(status: SettingStatus): string {
   if (status === "confirmed") return "setting-status setting-status--confirmed";
@@ -31,52 +36,95 @@ function formatAddress(address: string | string[]): string {
   return Array.isArray(address) ? address.join(" / ") : address;
 }
 
-function formatRaw(raw: number | [number, number]): string {
-  return Array.isArray(raw) ? raw.join(" / ") : String(raw);
-}
+function InverterSettingsPanel({ deviceSlug }: { deviceSlug: string }) {
+  const [snapshot, setSnapshot] = useState<InverterSettingsLatestResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-function InverterSettingsPanel() {
+  const load = useCallback(async (signal?: AbortSignal) => {
+    try {
+      setSnapshot(
+        await apiGet<InverterSettingsLatestResponse>(
+          `/api/v1/devices/${deviceSlug}/settings/latest`,
+          { signal, cacheTtlSeconds: 60 },
+        ),
+      );
+      setError(null);
+    } catch (reason) {
+      if (reason instanceof DOMException && reason.name === "AbortError") return;
+      setError(reason instanceof Error ? reason.message : "Gagal mengambil setelan");
+    }
+  }, [deviceSlug]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const initial = window.setTimeout(() => void load(controller.signal), 0);
+    const refresh = window.setInterval(() => void load(controller.signal), 60_000);
+    return () => {
+      controller.abort();
+      window.clearTimeout(initial);
+      window.clearInterval(refresh);
+    };
+  }, [load]);
+
+  const rawRegisters = snapshot?.raw_registers ?? {};
+  const hasSnapshot = snapshot !== null && snapshot.recorded_at !== null;
+
   return (
     <article className="panel section-gap">
       <div className="panel-title-row">
         <h2>Setelan inverter (0x4000)</h2>
-        <span className="panel-note">Referensi manual • diverifikasi {SETTINGS_VERIFIED_AT}</span>
+        <span className="panel-note">
+          {hasSnapshot ? `Nilai live • dibaca ${dateTime(snapshot.recorded_at)}` : "Menunggu pembacaan pertama"}
+        </span>
       </div>
       <p className="settings-panel-intro">
-        Bukan data live. Gateway produksi hanya membaca blok telemetri (0x3000); baris di bawah
-        berasal dari pembacaan manual blok setelan (0x4000, FC03) yang dicocokkan ke menu fisik
-        di layar inverter. Diperbarui setiap kali ada pembacaan ulang.
+        Nilainya live -- gateway membaca blok setelan (0x4000, FC03) tiap beberapa menit.
+        Yang masih statis hanya pemetaan alamat ke kode A0-A18 di menu (kolom Nama), karena
+        baru sebagian terbukti; diverifikasi terakhir {SETTINGS_MAPPING_VERIFIED_AT}.
       </p>
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Kode</th>
-              <th>Nama</th>
-              <th>Register</th>
-              <th>Nilai terakhir</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {INVERTER_SETTINGS.map((entry) => (
-              <tr key={entry.code}>
-                <td className="register-address">{entry.code}</td>
-                <td className="settings-note-cell">
-                  <strong>{entry.label}</strong>
-                  <span className="register-detail">{entry.note}</span>
-                </td>
-                <td className="register-address">{formatAddress(entry.registerAddress)}</td>
-                <td>
-                  {entry.displayValue}
-                  <span className="register-detail">raw {formatRaw(entry.lastRaw)}</span>
-                </td>
-                <td><span className={statusClassName(entry.status)}>{SETTINGS_STATUS_LABEL[entry.status]}</span></td>
+      {error && <div className="error-state panel">{error}</div>}
+      {!error && !hasSnapshot && (
+        <div className="compact-empty">
+          Belum ada snapshot setelan tersimpan. Gateway membaca blok ini ~10 detik setelah
+          mulai, lalu tiap beberapa menit -- kalau gateway baru saja di-deploy ulang, coba
+          lagi sebentar lagi.
+        </div>
+      )}
+      {!error && hasSnapshot && (
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Kode</th>
+                <th>Nama</th>
+                <th>Register</th>
+                <th>Nilai terkini</th>
+                <th>Status</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {INVERTER_SETTINGS.map((entry) => {
+                const { raw, value } = formatSettingValue(entry, rawRegisters);
+                return (
+                  <tr key={entry.code}>
+                    <td className="register-address">{entry.code}</td>
+                    <td className="settings-note-cell">
+                      <strong>{entry.label}</strong>
+                      <span className="register-detail">{entry.note}</span>
+                    </td>
+                    <td className="register-address">{formatAddress(entry.registerAddress)}</td>
+                    <td>
+                      {value}
+                      {raw !== "—" && <span className="register-detail">raw {raw}</span>}
+                    </td>
+                    <td><span className={statusClassName(entry.status)}>{SETTINGS_STATUS_LABEL[entry.status]}</span></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </article>
   );
 }
@@ -220,7 +268,7 @@ export function SettingsClient({ deviceSlug }: { deviceSlug: string }) {
         <div className="panel-note">Terakhir: {dateTime(data?.latest_recorded_at)}</div>
       </article>
 
-      <InverterSettingsPanel />
+      <InverterSettingsPanel deviceSlug={deviceSlug} />
 
       {error && <div className="error-state panel section-gap">{error}</div>}
       {!error && <>

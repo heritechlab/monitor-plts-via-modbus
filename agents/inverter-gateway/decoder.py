@@ -4,6 +4,10 @@ START_ADDRESS = 0x3000
 EXPECTED_REGISTER_COUNT = 32
 DECODER_VERSION = "prime-v3-grid-source"
 
+SETTINGS_START_ADDRESS = 0x4000
+SETTINGS_REGISTER_COUNT = 32
+SETTINGS_REGISTER_MAP_VERSION = "prime-settings-v1"
+
 
 def decode_registers(registers: list[int]) -> tuple[dict[str, float], dict[str, int]]:
     if len(registers) != EXPECTED_REGISTER_COUNT:
@@ -43,3 +47,24 @@ def decode_registers(registers: list[int]) -> tuple[dict[str, float], dict[str, 
     }
     metrics["pv_power_w"] = round(metrics["pv_voltage_v"] * metrics["pv_current_a"], 2)
     return metrics, raw
+
+
+def raw_settings(registers: list[int]) -> dict[str, int]:
+    """0x4000 (FC03) -- setelan A0-A18, bukan pengukuran.
+
+    Sengaja hanya raw: hanya A2/A3/A4/A5/A7 yang terbukti lewat menu fisik
+    inverter sejauh ini, dan urutan register tidak mengikuti urutan kode A
+    (dibuktikan lewat percobaan pergeseran posisi yang tidak pernah cocok).
+    Pemetaan alamat->kode A hidup di apps/web/lib/inverter-settings.ts, supaya
+    penambahan bukti baru tidak perlu rilis gateway baru.
+    """
+    if len(registers) != SETTINGS_REGISTER_COUNT:
+        raise ValueError(
+            f"Diperlukan {SETTINGS_REGISTER_COUNT} register, diterima {len(registers)}"
+        )
+    if any(not 0 <= value <= 0xFFFF for value in registers):
+        raise ValueError("Register harus berupa uint16")
+    return {
+        f"0x{SETTINGS_START_ADDRESS + index:04X}": value
+        for index, value in enumerate(registers)
+    }

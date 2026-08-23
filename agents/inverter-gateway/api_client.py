@@ -41,6 +41,24 @@ class ApiClient:
             )
         return response.json()
 
+    def send_settings_snapshot(self, payload: dict) -> None:
+        """Kirim satu snapshot blok setelan. Best-effort, tidak lewat antrean
+        offline: setelan berubah jarang, dan siklus poll berikutnya (default
+        tiap beberapa menit) sudah jadi mekanisme retry alaminya."""
+        try:
+            response = self._client.post("/api/v1/ingest/inverter-settings", json=payload)
+        except httpx.HTTPError as exc:
+            raise ApiClientError(str(exc)) from exc
+        if response.status_code in {401, 403}:
+            raise ApiClientError("API key ditolak oleh server", retryable=False)
+        if response.status_code == 429 or response.status_code >= 500:
+            raise ApiClientError(f"Server sementara gagal: HTTP {response.status_code}")
+        if response.is_error:
+            raise ApiClientError(
+                f"Request ditolak: HTTP {response.status_code} {response.text[:300]}",
+                retryable=False,
+            )
+
     def heartbeat(self, payload: dict) -> None:
         try:
             response = self._client.post("/api/v1/ingest/heartbeat", json=payload)

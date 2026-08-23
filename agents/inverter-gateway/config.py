@@ -14,6 +14,7 @@ class GatewayConfig:
     serial_baud: int
     slave_id: int
     poll_interval_seconds: float
+    settings_poll_interval_seconds: float
     serial_timeout_seconds: float
     http_timeout_seconds: float
     upload_batch_size: int
@@ -39,6 +40,11 @@ class GatewayConfig:
             serial_baud=int(getenv("SERIAL_BAUD", "9600")),
             slave_id=int(getenv("SLAVE_ID", "1")),
             poll_interval_seconds=float(getenv("POLL_INTERVAL_SECONDS", "5")),
+            # Setelan (0x4000) nyaris tak pernah berubah, beda dengan telemetri --
+            # default 5 menit, jauh lebih jarang dari poll_interval_seconds.
+            settings_poll_interval_seconds=float(
+                getenv("SETTINGS_POLL_INTERVAL_SECONDS", "300")
+            ),
             serial_timeout_seconds=float(getenv("SERIAL_TIMEOUT_SECONDS", "2")),
             http_timeout_seconds=float(getenv("HTTP_TIMEOUT_SECONDS", "10")),
             upload_batch_size=min(int(getenv("UPLOAD_BATCH_SIZE", "100")), 100),

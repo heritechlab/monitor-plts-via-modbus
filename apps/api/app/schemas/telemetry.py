@@ -83,6 +83,44 @@ class BmsTelemetryPayload(TelemetryPayload):
     metrics: BmsMetricsPayload
 
 
+class InverterSettingsPayload(BaseModel):
+    """Snapshot dari blok setelan (0x4000, FC03) -- bukan telemetri.
+
+    Sengaja tidak subclass TelemetryPayload: tidak ada `metrics`, karena
+    pemetaan A0-A18 belum semuanya terbukti (lihat inverter-settings.ts di web).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: Literal[1] = 1
+    sample_id: uuid.UUID
+    device_slug: str = Field(min_length=1, max_length=100)
+    recorded_at: datetime
+    gateway_version: str | None = Field(default=None, max_length=32)
+    source: str = Field(default="usb-rs485-laptop", max_length=64)
+    register_map_version: str = Field(default="prime-settings-v1", max_length=32)
+    raw_registers: dict[str, int]
+
+    @field_validator("recorded_at")
+    @classmethod
+    def require_timezone(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("recorded_at wajib memiliki timezone")
+        return value
+
+    @field_validator("raw_registers")
+    @classmethod
+    def validate_registers(cls, value: dict[str, int]) -> dict[str, int]:
+        if not 1 <= len(value) <= 64:
+            raise ValueError("raw_registers harus berisi 1 sampai 64 register")
+        for key, raw in value.items():
+            if not key.startswith("0x"):
+                raise ValueError(f"alamat register tidak valid: {key}")
+            if not 0 <= raw <= 65535:
+                raise ValueError(f"nilai register di luar uint16: {key}")
+        return value
+
+
 class BatchTelemetryPayload(BaseModel):
     # Validasi item dilakukan satu per satu agar satu payload rusak tidak
     # menggagalkan seluruh flush antrean.

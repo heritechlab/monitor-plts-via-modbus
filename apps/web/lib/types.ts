@@ -203,3 +203,10 @@ export interface RegisterAnalysisResponse {
   summary: { known: number; candidate: number; unknown: number };
   registers: RegisterAnalysisItem[];
 }
+
+export interface InverterSettingsLatestResponse {
+  recorded_at: string | null;
+  received_at: string | null;
+  register_map_version: string | null;
+  raw_registers: Record<string, number>;
+}

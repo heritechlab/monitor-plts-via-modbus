@@ -13,10 +13,16 @@ from app.schemas.telemetry import (
     BmsTelemetryPayload,
     HeartbeatPayload,
     IngestResponse,
+    InverterSettingsPayload,
     TelemetryPayload,
 )
 from app.services.auth import authenticate_device, bearer_token
-from app.services.ingest import store_bms_telemetry, store_heartbeat, store_telemetry
+from app.services.ingest import (
+    store_bms_telemetry,
+    store_heartbeat,
+    store_settings_snapshot,
+    store_telemetry,
+)
 
 router = APIRouter(prefix="/ingest", tags=["ingest"])
 
@@ -192,6 +198,26 @@ async def ingest_bms_batch(
         duplicates=sum(item.status == "duplicate" for item in results),
         rejected=sum(item.status == "rejected" for item in results),
         results=results,
+    )
+
+
+@router.post("/inverter-settings", response_model=IngestResponse)
+async def ingest_inverter_settings(
+    payload: InverterSettingsPayload,
+    response: Response,
+    authorization: str | None = Header(default=None),
+    session: AsyncSession = Depends(get_db),
+) -> IngestResponse:
+    device = await authenticate_device(session, payload.device_slug, bearer_token(authorization))
+    stored = await store_settings_snapshot(session, device, payload)
+    await session.commit()
+    response.status_code = status.HTTP_200_OK if stored.duplicate else status.HTTP_201_CREATED
+    return IngestResponse(
+        status="duplicate" if stored.duplicate else "accepted",
+        sample_id=stored.snapshot.sample_id,
+        duplicate=stored.duplicate,
+        received_at=stored.snapshot.received_at,
+        quality_flags=[],
     )
 
 

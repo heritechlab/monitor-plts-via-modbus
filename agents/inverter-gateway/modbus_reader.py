@@ -73,11 +73,19 @@ def resolve_serial_port(
 
 
 class PrimeModbusReader:
-    """Read-only PRIME inverter client. The only emitted function code is FC04."""
+    """Read-only PRIME inverter client. Only FC03 and FC04 are ever emitted --
+    never a write function code (0x06/0x10/0x0F)."""
 
     START_ADDRESS = 0x3000
     REGISTER_COUNT = 32
     FUNCTION_CODE = 0x04
+
+    # Blok setelan (A0-A18). Holding registers ini secara teknis bisa ditulis
+    # oleh perangkat lain di bus -- read_settings_registers() di bawah hanya
+    # pernah mengirim FC03 (baca), tidak pernah FC06/FC10 (tulis).
+    SETTINGS_ADDRESS = 0x4000
+    SETTINGS_COUNT = 32
+    SETTINGS_FUNCTION_CODE = 0x03
 
     def __init__(self, port: str, baudrate: int, slave_id: int, timeout: float) -> None:
         if not 1 <= slave_id <= 247:
@@ -117,15 +125,20 @@ class PrimeModbusReader:
 
     def read_prime_registers(self) -> list[int]:
         self.open()
+        return self._request(self.FUNCTION_CODE, self.START_ADDRESS, self.REGISTER_COUNT)
+
+    def read_settings_registers(self) -> list[int]:
+        """Baca blok setelan (0x4000, FC03). Dipoll jauh lebih jarang daripada
+        telemetri -- setelan nyaris tak pernah berubah antar polling siklus."""
+        self.open()
+        return self._request(
+            self.SETTINGS_FUNCTION_CODE, self.SETTINGS_ADDRESS, self.SETTINGS_COUNT
+        )
+
+    def _request(self, function_code: int, address: int, count: int) -> list[int]:
         assert self._serial is not None
         request = append_crc(
-            struct.pack(
-                ">BBHH",
-                self.slave_id,
-                self.FUNCTION_CODE,
-                self.START_ADDRESS,
-                self.REGISTER_COUNT,
-            )
+            struct.pack(">BBHH", self.slave_id, function_code, address, count)
         )
         self._serial.reset_input_buffer()
         self._serial.write(request)
@@ -135,20 +148,20 @@ class PrimeModbusReader:
         slave, function, third = header
         if slave != self.slave_id:
             raise ModbusError(f"Slave response tidak sesuai: {slave}")
-        if function == (self.FUNCTION_CODE | 0x80):
+        if function == (function_code | 0x80):
             frame = header + self._read_exact(2)
             if not validate_crc(frame):
                 raise ModbusCrcError("CRC exception response tidak valid")
             raise ModbusError(f"Modbus exception code 0x{third:02X}")
-        if function != self.FUNCTION_CODE:
+        if function != function_code:
             raise ModbusError(f"Function code tidak sesuai: 0x{function:02X}")
-        expected_bytes = self.REGISTER_COUNT * 2
+        expected_bytes = count * 2
         if third != expected_bytes:
             raise ModbusError(f"Byte count {third}, seharusnya {expected_bytes}")
         frame = header + self._read_exact(expected_bytes + 2)
         if not validate_crc(frame):
             raise ModbusCrcError("CRC response tidak valid")
-        return list(struct.unpack(f">{self.REGISTER_COUNT}H", frame[3:-2]))
+        return list(struct.unpack(f">{count}H", frame[3:-2]))
 
     def _read_exact(self, count: int) -> bytes:
         assert self._serial is not None

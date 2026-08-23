@@ -9,7 +9,7 @@ from sqlalchemy import Integer, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.db.models import Device, GatewayStatus, InverterTelemetry
+from app.db.models import Device, GatewayStatus, InverterSettingsSnapshot, InverterTelemetry
 from app.db.session import get_db
 from app.services.analytics import as_utc, build_monthly_summary, get_or_build_daily_summary
 from app.services.register_analysis import build_register_analysis
@@ -152,6 +152,30 @@ async def register_analysis(
 ) -> dict:
     device = await find_device(session, slug)
     return await build_register_analysis(session, device, hours)
+
+
+@router.get("/{slug}/settings/latest")
+async def latest_settings(slug: str, session: AsyncSession = Depends(get_db)) -> dict:
+    device = await find_device(session, slug)
+    row = await session.scalar(
+        select(InverterSettingsSnapshot)
+        .where(InverterSettingsSnapshot.device_id == device.id)
+        .order_by(InverterSettingsSnapshot.recorded_at.desc())
+        .limit(1)
+    )
+    if row is None:
+        return {
+            "recorded_at": None,
+            "received_at": None,
+            "register_map_version": None,
+            "raw_registers": {},
+        }
+    return {
+        "recorded_at": iso(row.recorded_at),
+        "received_at": iso(row.received_at),
+        "register_map_version": row.register_map_version,
+        "raw_registers": row.raw_registers,
+    }
 
 
 @router.get("/{slug}/telemetry")

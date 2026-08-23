@@ -14,7 +14,7 @@ from zoneinfo import ZoneInfo
 from api_client import ApiClient, ApiClientError
 from config import GatewayConfig
 from csv_backup import CsvBackup
-from decoder import DECODER_VERSION, decode_registers
+from decoder import DECODER_VERSION, SETTINGS_REGISTER_MAP_VERSION, decode_registers, raw_settings
 from modbus_reader import ModbusError, PrimeModbusReader
 from offline_queue import OfflineQueue
 
@@ -151,6 +151,21 @@ def build_payload(
     }
 
 
+def build_settings_payload(
+    config: GatewayConfig, registers: list[int], recorded_at: datetime
+) -> dict:
+    return {
+        "schema_version": 1,
+        "sample_id": str(uuid.uuid4()),
+        "device_slug": config.device_slug,
+        "recorded_at": recorded_at.isoformat(timespec="milliseconds"),
+        "gateway_version": config.gateway_version,
+        "source": "usb-rs485-laptop",
+        "register_map_version": SETTINGS_REGISTER_MAP_VERSION,
+        "raw_registers": raw_settings(registers),
+    }
+
+
 def upload_worker(
     config: GatewayConfig,
     queue: OfflineQueue,
@@ -241,13 +256,28 @@ def run() -> int:
         daemon=True,
     )
     uploader.start()
+    # Klien terpisah dari yang dipakai upload_worker: snapshot setelan dikirim
+    # langsung best-effort dari thread poll utama, tidak lewat antrean offline
+    # (lihat send_settings_snapshot). httpx.Client tidak dijamin aman dipakai
+    # lintas thread untuk permintaan konkuren, jadi instance sendiri lebih aman
+    # daripada membagi client uploader.
+    settings_client = ApiClient(
+        config.api_base_url,
+        config.device_api_key,
+        config.http_timeout_seconds,
+        config.verify_tls,
+    )
     zone = ZoneInfo(config.timezone)
     next_poll = time.monotonic()
+    next_settings_poll = time.monotonic() + 10
     LOGGER.info(
-        "Gateway mulai | %s %s 8N1 | slave=%s | FC04 0x3000..0x301F",
+        "Gateway mulai | %s %s 8N1 | slave=%s | FC04 0x3000..0x301F tiap %ss | "
+        "FC03 0x4000..0x401F (setelan) tiap %ss",
         config.serial_port,
         config.serial_baud,
         config.slave_id,
+        config.poll_interval_seconds,
+        config.settings_poll_interval_seconds,
     )
     try:
         while not stop_event.is_set():
@@ -292,9 +322,29 @@ def run() -> int:
             except Exception as exc:
                 state.serial_error(str(exc))
                 LOGGER.exception("Kesalahan gateway tak terduga")
+
+            now_monotonic = time.monotonic()
+            if now_monotonic >= next_settings_poll:
+                next_settings_poll = now_monotonic + config.settings_poll_interval_seconds
+                # Kegagalan di sini TIDAK menutup `reader`: satu blok gagal tidak
+                # berarti koneksinya rusak untuk blok lain. Kalau memang rusak,
+                # siklus telemetri berikutnya (poll_interval_seconds, jauh lebih
+                # sering) akan menangkap dan menanganinya lewat jalur di atas.
+                try:
+                    settings_registers = reader.read_settings_registers()
+                    settings_payload = build_settings_payload(
+                        config, settings_registers, datetime.now(zone)
+                    )
+                    settings_client.send_settings_snapshot(settings_payload)
+                    LOGGER.info("Setelan (0x4000) terkirim")
+                except (ModbusError, OSError) as exc:
+                    LOGGER.warning("Gagal membaca blok setelan: %s", exc)
+                except ApiClientError as exc:
+                    LOGGER.warning("Gagal mengirim snapshot setelan: %s", exc)
     finally:
         stop_event.set()
         reader.close()
+        settings_client.close()
         uploader.join(timeout=config.http_timeout_seconds + 2)
         LOGGER.info("Gateway berhenti | QUEUE %s", queue.depth())
     return 0

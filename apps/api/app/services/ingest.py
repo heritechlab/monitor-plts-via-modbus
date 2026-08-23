@@ -5,8 +5,20 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import BmsTelemetry, DailySummary, Device, GatewayStatus, InverterTelemetry
-from app.schemas.telemetry import BmsTelemetryPayload, HeartbeatPayload, TelemetryPayload
+from app.db.models import (
+    BmsTelemetry,
+    DailySummary,
+    Device,
+    GatewayStatus,
+    InverterSettingsSnapshot,
+    InverterTelemetry,
+)
+from app.schemas.telemetry import (
+    BmsTelemetryPayload,
+    HeartbeatPayload,
+    InverterSettingsPayload,
+    TelemetryPayload,
+)
 from app.services.quality import evaluate_quality
 
 
@@ -19,6 +31,12 @@ class StoredSample:
 @dataclass
 class StoredBmsSample:
     telemetry: BmsTelemetry
+    duplicate: bool
+
+
+@dataclass
+class StoredSettingsSnapshot:
+    snapshot: InverterSettingsSnapshot
     duplicate: bool
 
 
@@ -150,6 +168,32 @@ async def store_bms_telemetry(
     )
     await session.flush()
     return StoredBmsSample(telemetry, duplicate=False)
+
+
+async def store_settings_snapshot(
+    session: AsyncSession, device: Device, payload: InverterSettingsPayload
+) -> StoredSettingsSnapshot:
+    existing = await session.scalar(
+        select(InverterSettingsSnapshot).where(
+            InverterSettingsSnapshot.sample_id == payload.sample_id
+        )
+    )
+    if existing is not None:
+        return StoredSettingsSnapshot(existing, duplicate=True)
+
+    snapshot = InverterSettingsSnapshot(
+        sample_id=payload.sample_id,
+        device_id=device.id,
+        recorded_at=payload.recorded_at.astimezone(UTC),
+        received_at=datetime.now(UTC),
+        raw_registers=payload.raw_registers,
+        register_map_version=payload.register_map_version,
+        gateway_version=payload.gateway_version,
+        source=payload.source,
+    )
+    session.add(snapshot)
+    await session.flush()
+    return StoredSettingsSnapshot(snapshot, duplicate=False)
 
 
 async def store_heartbeat(

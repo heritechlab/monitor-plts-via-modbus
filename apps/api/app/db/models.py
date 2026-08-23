@@ -158,6 +158,38 @@ class BmsTelemetry(Base):
     sequence_number: Mapped[int | None] = mapped_column(BigInteger)
 
 
+class InverterSettingsSnapshot(Base):
+    """Blok setelan inverter (0x4000, FC03), dipoll jarang -- setelan nyaris tak
+    pernah berubah, beda dengan inverter_telemetry yang dipoll tiap beberapa detik.
+
+    Hanya menyimpan raw_registers; pemetaan alamat ke arti (A0-A18) hidup di
+    apps/web/lib/inverter-settings.ts karena baru sebagian terbukti lewat menu
+    fisik inverter. Menambah field terdekode di sini sebelum semua register
+    terpetakan hanya akan mengunci tebakan yang belum tentu benar ke skema DB.
+    """
+
+    __tablename__ = "inverter_settings_snapshot"
+    __table_args__ = (
+        Index("ix_inverter_settings_device_recorded", "device_id", "recorded_at"),
+    )
+
+    id: Mapped[int] = mapped_column(BIGINT_PK, primary_key=True, autoincrement=True)
+    sample_id: Mapped[uuid.UUID] = mapped_column(Uuid, unique=True, nullable=False)
+    device_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("devices.id", ondelete="CASCADE"), nullable=False
+    )
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    received_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    raw_registers: Mapped[dict[str, int]] = mapped_column(JSON_TYPE, nullable=False)
+    register_map_version: Mapped[str] = mapped_column(
+        String(32), default="prime-settings-v1", nullable=False
+    )
+    gateway_version: Mapped[str | None] = mapped_column(String(32))
+    source: Mapped[str] = mapped_column(String(64), default="usb-rs485-laptop", nullable=False)
+
+
 class GatewayStatus(Base):
     __tablename__ = "gateway_status"
 

@@ -129,3 +129,113 @@ async def test_ingest_duplicate_latest_and_partial_batch() -> None:
     finally:
         app.dependency_overrides.clear()
         await engine.dispose()
+
+
+def settings_payload(sample_id: uuid.UUID | None = None) -> dict:
+    return {
+        "schema_version": 1,
+        "sample_id": str(sample_id or uuid.uuid4()),
+        "device_slug": "prime-rumah-01",
+        "recorded_at": datetime.now(UTC).isoformat(),
+        "gateway_version": "test",
+        "source": "simulator",
+        "register_map_version": "prime-settings-v1",
+        "raw_registers": {f"0x{0x4000 + index:04X}": index for index in range(32)},
+    }
+
+
+@pytest.mark.asyncio
+async def test_ingest_inverter_settings_dedup_and_latest_reflects_newest() -> None:
+    engine = create_async_engine("sqlite+aiosqlite://", poolclass=StaticPool)
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+
+    key = "plts_settings_test_key"
+    async with session_factory() as session:
+        device = Device(slug="prime-rumah-01", name="Test", timezone="Asia/Jakarta")
+        session.add(device)
+        await session.flush()
+        session.add(
+            DeviceApiKey(
+                device_id=device.id,
+                key_prefix=api_key_prefix(key),
+                key_hash=hash_api_key(key),
+            )
+        )
+        await session.commit()
+
+    async def override_db():
+        async with session_factory() as session:
+            yield session
+
+    app.dependency_overrides[get_db] = override_db
+    headers = {"Authorization": f"Bearer {key}"}
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            sample = settings_payload()
+            first = await client.post(
+                "/api/v1/ingest/inverter-settings", json=sample, headers=headers
+            )
+            assert first.status_code == 201
+
+            duplicate = await client.post(
+                "/api/v1/ingest/inverter-settings", json=sample, headers=headers
+            )
+            assert duplicate.status_code == 200
+            assert duplicate.json()["duplicate"] is True
+
+            latest = await client.get("/api/v1/devices/prime-rumah-01/settings/latest")
+            assert latest.status_code == 200
+            body = latest.json()
+            assert body["raw_registers"]["0x4008"] == 8
+            assert body["register_map_version"] == "prime-settings-v1"
+            assert body["recorded_at"] is not None
+
+            # A newer snapshot must be what /settings/latest reflects afterwards --
+            # this is the whole point of moving off the static reference table.
+            newer = settings_payload()
+            newer["raw_registers"]["0x4008"] = 999
+            await client.post(
+                "/api/v1/ingest/inverter-settings", json=newer, headers=headers
+            )
+            refreshed = await client.get("/api/v1/devices/prime-rumah-01/settings/latest")
+            assert refreshed.json()["raw_registers"]["0x4008"] == 999
+    finally:
+        app.dependency_overrides.clear()
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_settings_latest_before_any_snapshot_is_empty_not_error() -> None:
+    engine = create_async_engine("sqlite+aiosqlite://", poolclass=StaticPool)
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+
+    async with session_factory() as session:
+        session.add(Device(slug="prime-rumah-01", name="Test", timezone="Asia/Jakarta"))
+        await session.commit()
+
+    async def override_db():
+        async with session_factory() as session:
+            yield session
+
+    app.dependency_overrides[get_db] = override_db
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            response = await client.get("/api/v1/devices/prime-rumah-01/settings/latest")
+            assert response.status_code == 200
+            assert response.json() == {
+                "recorded_at": None,
+                "received_at": None,
+                "register_map_version": None,
+                "raw_registers": {},
+            }
+    finally:
+        app.dependency_overrides.clear()
+        await engine.dispose()

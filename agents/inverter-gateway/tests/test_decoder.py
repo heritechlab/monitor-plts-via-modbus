@@ -1,5 +1,5 @@
 import pytest
-from decoder import decode_registers
+from decoder import decode_registers, raw_settings
 
 
 def test_decode_confirmed_registers() -> None:
@@ -23,6 +23,27 @@ def test_decode_confirmed_registers() -> None:
 def test_decoder_rejects_partial_response() -> None:
     with pytest.raises(ValueError):
         decode_registers([0] * 31)
+
+
+def test_raw_settings_keys_start_at_0x4000() -> None:
+    registers = list(range(32))
+    result = raw_settings(registers)
+    assert result["0x4000"] == 0
+    assert result["0x4008"] == 8
+    assert result["0x401F"] == 31
+    assert len(result) == 32
+
+
+def test_raw_settings_rejects_wrong_length() -> None:
+    with pytest.raises(ValueError):
+        raw_settings([0] * 16)
+
+
+def test_raw_settings_rejects_out_of_range_value() -> None:
+    registers = [0] * 32
+    registers[0] = 70000
+    with pytest.raises(ValueError):
+        raw_settings(registers)
 
 
 def _registers(**overrides: int) -> list[int]:
