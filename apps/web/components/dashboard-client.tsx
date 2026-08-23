@@ -19,6 +19,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { MetricCard } from "@/components/metric-card";
 import { PowerChart } from "@/components/power-chart";
+import { PowerFlowDiagram } from "@/components/power-flow-diagram";
 import { PowerGauge } from "@/components/power-gauge";
 import { apiGet } from "@/lib/api";
 import {
@@ -327,13 +328,18 @@ export function DashboardClient({ deviceSlug }: { deviceSlug: string }) {
             <PowerGauge label="Daya PV" max={rated?.pvRatedWp ?? 1200} unit="W" value={metrics?.pv_power_w ?? null} />
             <PowerGauge label="Beban AC" max={rated?.inverterRatedW ?? 1000} unit="VA" value={metrics?.ac_output_power_w ?? null} />
           </div>
-          <div className="energy-flow">
-            <div className="flow-node"><div className="flow-node-icon"><SunMedium size={19} /></div><strong>{pv.value} {pv.unit}</strong><span>Panel PV</span></div>
-            <div className="flow-line" />
-            <div className="flow-node"><div className="flow-node-icon"><CircuitBoard size={19} /></div><strong>Inverter</strong><span>PRIME</span></div>
-            <div className="flow-line" />
-            <div className="flow-node"><div className="flow-node-icon"><HousePlug size={19} /></div><strong>{output.value} {output.unit}</strong><span>Beban AC</span></div>
-          </div>
+          <PowerFlowDiagram
+            pvWattW={metrics?.pv_power_w ?? null}
+            gridVoltageV={metrics?.grid_voltage_v ?? null}
+            gridState={
+              gridDetected === null ? "unknown" : !gridDetected ? "disconnected" : onGrid ? "supplying" : "standby"
+            }
+            batteryPowerW={bmsPacks[0]?.packPowerW ?? null}
+            batterySocPercent={bmsPacks[0]?.socPercent ?? metrics?.inverter_soc_percent ?? null}
+            batterySocFromBms={bmsPacks.length > 0 && bmsPacks[0]?.socPercent !== null}
+            loadVaW={metrics?.ac_output_power_w ?? null}
+            inverterOnline={latest?.telemetry_status === "online"}
+          />
           <div className="grid summary-grid" style={{ marginTop: 14 }}>
             <div className="summary-item"><span>Beban semu hari ini</span><strong>{apparentEnergy(daily?.ac_load_estimate_kvah)}</strong></div>
             <div className="summary-item"><span>Daya aktif</span><strong className="warning">Butuh meter eksternal</strong></div>
