@@ -77,16 +77,21 @@ function FlowNode({
 //             baterai discharge)
 //   "out"   = dari inverter menuju sudut node (beban selalu begini; baterai
 //             begini juga saat sedang diisi)
+//
+// `edgeY` memisahkan jalur masuk dari jalur keluar pada sisi yang sama: tanpa
+// itu, PV dan baterai (sama-sama di kiri) akan menumpuk di satu garis
+// horizontal yang sama, begitu pula PLN dan beban di kanan -- animasinya jadi
+// tampak seperti satu aliran, bukan dua yang terpisah.
 function elbowPath(
   corner: { x: number; y: number },
   edgeX: number,
-  centerY: number,
+  edgeY: number,
   direction: "into" | "out",
 ): string {
   if (direction === "into") {
-    return `M ${corner.x} ${corner.y} V ${centerY} H ${edgeX}`;
+    return `M ${corner.x} ${corner.y} V ${edgeY} H ${edgeX}`;
   }
-  return `M ${edgeX} ${centerY} H ${corner.x} V ${corner.y}`;
+  return `M ${edgeX} ${edgeY} H ${corner.x} V ${corner.y}`;
 }
 
 export function PowerFlowDiagram({
@@ -102,12 +107,22 @@ export function PowerFlowDiagram({
   const { pvFlowing, gridFlowing, batteryCharging, batteryFlowing, loadFlowing, gridLabel, gridTone } =
     derivePowerFlowVisuals({ pvWattW, gridState, batteryPowerW, loadVaW });
 
-  // Path elbow: turun/naik dari sudut menuju tinggi tengah, lalu mendatar ke
-  // tepi kotak inverter (bukan sampai titik pusatnya, supaya tidak menumpuk
-  // di belakang ikon).
+  // Path elbow: turun/naik dari sudut menuju salah satu dari dua ketinggian
+  // sambungan, lalu mendatar ke tepi kotak inverter (bukan sampai titik
+  // pusatnya, supaya tidak menumpuk di belakang ikon).
+  // Kotak inverter berukuran tetap 68px; dalam persen container (~285x270 px
+  // pada layout dua kolom) itu sekitar 24% lebar dan 25% tinggi. Jalur harus
+  // berhenti DI LUAR kotak, bukan di dalamnya -- kalau di dalam, kepala panah
+  // tertutup kotak dan arah aliran jadi tak terlihat.
   const { pv, grid, battery, load, center } = ANCHORS;
-  const centerLeftEdge = center.x - 8;
-  const centerRightEdge = center.x + 8;
+  const boxHalfWidth = 14;
+  const boxHalfHeight = 15;
+  const centerLeftEdge = center.x - boxHalfWidth;
+  const centerRightEdge = center.x + boxHalfWidth;
+  // Dua ketinggian sambungan terpisah supaya PV dan baterai (sama-sama di kiri)
+  // tidak menumpuk di satu garis, begitu pula PLN dan beban di kanan.
+  const upperEdgeY = center.y - boxHalfHeight;
+  const lowerEdgeY = center.y + boxHalfHeight;
 
   const batteryDirection: "into" | "out" = batteryCharging ? "out" : "into";
   const batteryTone = batteryCharging ? "green" : "amber";
@@ -128,25 +143,25 @@ export function PowerFlowDiagram({
         </defs>
         <path
           className={`power-flow-path ${pvFlowing ? "power-flow-path--active" : ""}`}
-          d={elbowPath(pv, centerLeftEdge, center.y, "into")}
+          d={elbowPath(pv, centerLeftEdge, upperEdgeY, "into")}
           markerEnd={pvFlowing ? "url(#power-flow-arrow-green)" : undefined}
           pathLength={100}
         />
         <path
           className={`power-flow-path ${gridFlowing ? "power-flow-path--active" : ""}`}
-          d={elbowPath(grid, centerRightEdge, center.y, "into")}
+          d={elbowPath(grid, centerRightEdge, upperEdgeY, "into")}
           markerEnd={gridFlowing ? "url(#power-flow-arrow-blue)" : undefined}
           pathLength={100}
         />
         <path
           className={`power-flow-path ${batteryFlowing ? "power-flow-path--active" : ""}`}
-          d={elbowPath(battery, centerLeftEdge, center.y, batteryDirection)}
+          d={elbowPath(battery, centerLeftEdge, lowerEdgeY, batteryDirection)}
           markerEnd={batteryFlowing ? `url(#power-flow-arrow-${batteryTone})` : undefined}
           pathLength={100}
         />
         <path
           className={`power-flow-path ${loadFlowing ? "power-flow-path--active" : ""}`}
-          d={elbowPath(load, centerRightEdge, center.y, "out")}
+          d={elbowPath(load, centerRightEdge, lowerEdgeY, "out")}
           markerEnd={loadFlowing ? "url(#power-flow-arrow-green)" : undefined}
           pathLength={100}
         />
@@ -181,9 +196,9 @@ export function PowerFlowDiagram({
         }}
       >
         <div className={`power-flow-inverter ${inverterOnline ? "power-flow-inverter--online" : ""}`}>
-          <CircuitBoard size={22} />
+          <CircuitBoard size={20} />
+          <span>PRIME</span>
         </div>
-        <span>Inverter PRIME</span>
       </div>
       <FlowNode
         x={battery.x}

@@ -323,7 +323,10 @@ export function DashboardClient({ deviceSlug }: { deviceSlug: string }) {
         </article>
 
         <article className="panel">
-          <div className="panel-title-row"><h2>Aliran daya</h2><span className="panel-note">Beban inverter adalah estimasi VA</span></div>
+          <div className="panel-title-row">
+            <h2>Aliran daya</h2>
+            <span className="panel-note">Beban semu hari ini {apparentEnergy(daily?.ac_load_estimate_kvah)}</span>
+          </div>
           <div className="grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
             <PowerGauge label="Daya PV" max={rated?.pvRatedWp ?? 1200} unit="W" value={metrics?.pv_power_w ?? null} />
             <PowerGauge label="Beban AC" max={rated?.inverterRatedW ?? 1000} unit="VA" value={metrics?.ac_output_power_w ?? null} />
@@ -340,12 +343,6 @@ export function DashboardClient({ deviceSlug }: { deviceSlug: string }) {
             loadVaW={metrics?.ac_output_power_w ?? null}
             inverterOnline={latest?.telemetry_status === "online"}
           />
-          <div className="grid summary-grid" style={{ marginTop: 14 }}>
-            <div className="summary-item"><span>Beban semu hari ini</span><strong>{apparentEnergy(daily?.ac_load_estimate_kvah)}</strong></div>
-            <div className="summary-item"><span>Daya aktif</span><strong className="warning">Butuh meter eksternal</strong></div>
-            <div className="summary-item"><span>Antrean lokal</span><strong>{number(latest?.gateway.queue_depth, 0)}</strong></div>
-            <div className="summary-item"><span>Serial</span><strong className={latest?.gateway.serial_status === "ok" ? "good" : "warning"}>{latest?.gateway.serial_status ?? "—"}</strong></div>
-          </div>
         </article>
       </section>
 
@@ -354,6 +351,8 @@ export function DashboardClient({ deviceSlug }: { deviceSlug: string }) {
         <div className="grid summary-grid">
           <div className="summary-item"><span>Telemetry terakhir</span><strong>{dateTime(latest?.telemetry?.recorded_at)}</strong></div>
           <div className="summary-item"><span>Gateway</span><strong className={latest?.status === "online" ? "good" : "warning"}>{latest?.status ?? "—"}</strong></div>
+          <div className="summary-item"><span>Serial</span><strong className={latest?.gateway.serial_status === "ok" ? "good" : "warning"}>{latest?.gateway.serial_status ?? "—"}</strong></div>
+          <div className="summary-item"><span>Antrean lokal</span><strong>{number(latest?.gateway.queue_depth, 0)}</strong></div>
           <div className="summary-item"><span>Sampel hari ini</span><strong>{number(daily?.sample_count, 0)}</strong></div>
           <div className="summary-item"><span>Anomali hari ini</span><strong className={daily?.invalid_sample_count ? "warning" : "good"}>{number(daily?.invalid_sample_count, 0)}</strong></div>
         </div>
