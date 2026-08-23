@@ -74,6 +74,18 @@ async def ensure_device(
         print("API key dari konfigurasi berhasil didaftarkan.")
 
 
+async def rename_device(slug: str, name: str) -> None:
+    async with SessionLocal() as session:
+        device = await session.scalar(select(Device).where(Device.slug == slug))
+        if device is None:
+            print(f"Device tidak ditemukan: {slug}")
+            sys.exit(1)
+        previous = device.name
+        device.name = name
+        await session.commit()
+    print(f"Nama device '{slug}' diubah: '{previous}' -> '{name}'")
+
+
 async def prune_raw_registers(days: int, run_vacuum: bool) -> None:
     """Kosongkan raw_registers untuk sampel lama, lalu rapikan file DB.
 
@@ -126,11 +138,17 @@ def main() -> None:
     prune.add_argument("--days", type=int, default=7, help="Umur simpan register mentah")
     prune.add_argument("--no-vacuum", action="store_true", help="Lewati VACUUM")
 
+    rename = sub.add_parser("rename-device", help="Ubah nama tampilan device yang sudah ada")
+    rename.add_argument("--slug", required=True)
+    rename.add_argument("--name", required=True)
+
     args = parser.parse_args()
     if args.command == "ensure-device":
         asyncio.run(ensure_device(args.slug, args.name, args.api_key, args.device_type))
     elif args.command == "prune-raw":
         asyncio.run(prune_raw_registers(args.days, not args.no_vacuum))
+    elif args.command == "rename-device":
+        asyncio.run(rename_device(args.slug, args.name))
     else:
         sys.exit(2)
 

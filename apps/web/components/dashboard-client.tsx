@@ -46,6 +46,26 @@ interface BmsPackSummary {
   packCurrentA: number | null;
   packPowerW: number | null;
   status: "online" | "degraded" | "offline";
+  isMock?: boolean;
+}
+
+// Pack B1 belum punya BMS gateway terpasang -- kartu ini murni contoh tata
+// letak, bukan telemetri, dan ditandai jelas sebagai contoh (bukan hanya warna
+// redup) supaya tidak pernah bisa disalahartikan sebagai data live. Nilainya
+// dicerminkan dari Pack B2 (bukan angka statis) supaya tampilan kedua pack
+// terlihat seimbang -- kedua pack sama-sama 24V 100Ah, jadi wajar naik-turun
+// bersamaan kalau nanti B1 benar-benar terhubung.
+function mockPackB1(realPack: BmsPackSummary | undefined): BmsPackSummary {
+  return {
+    slug: "mock-pack-b1",
+    name: "Pack B1 24V 100Ah",
+    socPercent: realPack?.socPercent ?? 82,
+    packVoltageV: realPack?.packVoltageV ?? 26.5,
+    packCurrentA: realPack?.packCurrentA ?? 3.2,
+    packPowerW: realPack?.packPowerW ?? 85,
+    status: "offline",
+    isMock: true,
+  };
 }
 
 function useBmsPacks() {
@@ -124,6 +144,10 @@ export function DashboardClient({ deviceSlug }: { deviceSlug: string }) {
   const [history, setHistory] = useState<HistoryResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const bmsPacks = useBmsPacks();
+  // Kartu contoh Pack B1 HANYA untuk tampilan daftar -- sengaja tidak dicampur
+  // ke bmsPacks itu sendiri, supaya PowerFlowDiagram (yang memakai bmsPacks[0]
+  // sebagai sumber watt/SOC baterai nyata) tidak pernah kebagian angka contoh.
+  const bmsPacksForDisplay = [mockPackB1(bmsPacks[0]), ...bmsPacks];
   const rated = useRatedCapacity(deviceSlug);
 
   const loadLatest = useCallback(async () => {
@@ -277,41 +301,41 @@ export function DashboardClient({ deviceSlug }: { deviceSlug: string }) {
         {cards.map((card) => <MetricCard {...card} key={card.label} />)}
       </section>
 
-      {bmsPacks.length > 0 && (
-        <section className="panel section-gap">
-          <div className="panel-title-row">
-            <h2>Status baterai (BMS)</h2>
-            <Link className="panel-note" href="/battery">Lihat detail sel →</Link>
-          </div>
-          <div className="grid metric-grid">
-            {bmsPacks.map((pack) => {
-              const charging = pack.packCurrentA !== null && pack.packCurrentA >= 0;
-              const directionClass = pack.packCurrentA === null ? "" : charging ? "good" : "danger";
-              return (
-                <article className="metric-card" key={pack.slug}>
-                  <div className="metric-label">
-                    <span>{pack.name}</span>
-                    <BatteryCharging className="metric-icon" size={16} />
-                  </div>
-                  <div className="metric-value">
-                    {number(pack.socPercent, 0)}<span className="metric-unit">%</span>
-                  </div>
-                  <div className="metric-caption">
-                    {number(pack.packVoltageV, 1)} V • {pack.status === "online" ? "online" : pack.status}
-                  </div>
-                  <div className="metric-caption" style={{ marginTop: 4 }}>
-                    <span className={directionClass}>
-                      {number(pack.packCurrentA, 2)} A ({charging ? "mengisi" : "discharge"})
-                    </span>
-                    {" • "}
-                    <span className={directionClass}>{number(pack.packPowerW, 0)} W</span>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        </section>
-      )}
+      <section className="panel section-gap">
+        <div className="panel-title-row">
+          <h2>Status baterai (BMS)</h2>
+          <Link className="panel-note" href="/battery">Lihat detail sel →</Link>
+        </div>
+        <div className="grid metric-grid">
+          {bmsPacksForDisplay.map((pack) => {
+            const charging = pack.packCurrentA !== null && pack.packCurrentA >= 0;
+            const directionClass = pack.packCurrentA === null ? "" : charging ? "good" : "danger";
+            return (
+              <article className={`metric-card ${pack.isMock ? "metric-card--muted" : ""}`} key={pack.slug}>
+                <div className="metric-label">
+                  <span>{pack.name}</span>
+                  <BatteryCharging className="metric-icon" size={16} />
+                </div>
+                <div className="metric-value">
+                  {number(pack.socPercent, 0)}<span className="metric-unit">%</span>
+                </div>
+                <div className="metric-caption">
+                  {pack.isMock
+                    ? "Contoh tata letak • belum terhubung"
+                    : `${number(pack.packVoltageV, 1)} V • ${pack.status === "online" ? "online" : pack.status}`}
+                </div>
+                <div className="metric-caption" style={{ marginTop: 4 }}>
+                  <span className={directionClass}>
+                    {number(pack.packCurrentA, 2)} A ({charging ? "mengisi" : "discharge"})
+                  </span>
+                  {" • "}
+                  <span className={directionClass}>{number(pack.packPowerW, 0)} W</span>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </section>
 
       <section className="grid two-column section-gap">
         <article className="panel chart-panel">
