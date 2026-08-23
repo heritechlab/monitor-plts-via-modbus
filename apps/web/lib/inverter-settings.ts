@@ -62,11 +62,11 @@ export const INVERTER_SETTINGS: InverterSettingEntry[] = [
   {
     code: "A5",
     label: "Auto start output recover voltage",
-    registerAddress: ["0x400E", "0x4010"],
-    lastRaw: [124, 124],
-    displayValue: "24,8 V (per menu operator)",
-    status: "ambiguous",
-    note: "Menu operator menunjukkan 24,8 V, dan DUA register di blok ini kebetulan bernilai sama (124 -> 24,8 V), jadi belum bisa dipastikan yang mana A5. Perlu diuji: ubah A5 ke angka lain di menu, baca ulang, lihat register mana yang bergerak.",
+    registerAddress: "0x4010",
+    lastRaw: 123,
+    displayValue: "24,6 V",
+    status: "confirmed",
+    note: "Terbukti lewat uji satu-klik: A5 diturunkan dari 24,8 V ke 24,6 V di menu (tersimpan dengan tahan FUNCTION 3 detik), lalu dibaca ulang. 0x4010 ikut turun ke 123 (24,6 V); 0x400E tetap 124 (24,8 V) -- jadi 0x400E BUKAN A5, kembar nilainya kebetulan saja.",
   },
   {
     code: "A6",
@@ -89,11 +89,11 @@ export const INVERTER_SETTINGS: InverterSettingEntry[] = [
   {
     code: "A1, A8-A18",
     label: "Belum dipetakan",
-    registerAddress: "0x4001-0x4007, 0x400A-0x400C, 0x4011, 0x4014-0x401F",
+    registerAddress: "0x4001-0x4007, 0x400A-0x400C, 0x400E, 0x4011, 0x4014-0x401F",
     lastRaw: 0,
     displayValue: "—",
     status: "unmapped",
-    note: "Register-register ini terbukti diam (bukan pengukuran), tapi urutan alamatnya tidak mengikuti urutan kode A di menu -- percobaan menggeser posisi tidak pernah cocok. A1 (arus charge PLN, pilihan C0-C6) tidak bisa dicocokkan dengan cara yang sama karena bukan tegangan. Pemetaannya baru bisa dipastikan lewat kecocokan nilai satu per satu, seperti A2/A3/A4/A7.",
+    note: "Register-register ini terbukti diam (bukan pengukuran), tapi urutan alamatnya tidak mengikuti urutan kode A di menu -- percobaan menggeser posisi tidak pernah cocok. 0x400E terbukti BUKAN A5 (diam saat A5 diubah), jadi ia menyimpan sesuatu yang lain, belum diketahui apa. A1 (arus charge PLN, pilihan C0-C6) tidak bisa dicocokkan dengan cara yang sama karena bukan tegangan. Pemetaannya baru bisa dipastikan lewat kecocokan nilai satu per satu, seperti A2/A3/A4/A5/A7.",
   },
 ];
 
