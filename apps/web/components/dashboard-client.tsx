@@ -361,7 +361,13 @@ export function DashboardClient({ deviceSlug }: { deviceSlug: string }) {
             gridState={
               gridDetected === null ? "unknown" : !gridDetected ? "disconnected" : onGrid ? "supplying" : "standby"
             }
-            batteryPowerW={bmsPacks[0]?.packPowerW ?? null}
+            batteryPowerW={
+              bmsPacks[0]?.packPowerW === null || bmsPacks[0]?.packPowerW === undefined
+                ? null
+                : (bmsPacks[0]?.packCurrentA ?? 0) < 0
+                  ? -Math.abs(bmsPacks[0].packPowerW)
+                  : Math.abs(bmsPacks[0].packPowerW)
+            }
             batterySocPercent={bmsPacks[0]?.socPercent ?? metrics?.inverter_soc_percent ?? null}
             batterySocFromBms={bmsPacks.length > 0 && bmsPacks[0]?.socPercent !== null}
             loadVaW={metrics?.ac_output_power_w ?? null}
