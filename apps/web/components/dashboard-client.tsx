@@ -147,7 +147,9 @@ export function DashboardClient({ deviceSlug }: { deviceSlug: string }) {
   // Kartu contoh Pack B1 HANYA untuk tampilan daftar -- sengaja tidak dicampur
   // ke bmsPacks itu sendiri, supaya PowerFlowDiagram (yang memakai bmsPacks[0]
   // sebagai sumber watt/SOC baterai nyata) tidak pernah kebagian angka contoh.
-  const bmsPacksForDisplay = [mockPackB1(bmsPacks[0]), ...bmsPacks];
+  // Begitu pack kedua yang sungguhan terdaftar, kartu contoh ini tidak lagi
+  // relevan -- dua pack nyata sudah cukup mengisi tata letak.
+  const bmsPacksForDisplay = bmsPacks.length >= 2 ? bmsPacks : [mockPackB1(bmsPacks[0]), ...bmsPacks];
   const rated = useRatedCapacity(deviceSlug);
 
   const loadLatest = useCallback(async () => {
