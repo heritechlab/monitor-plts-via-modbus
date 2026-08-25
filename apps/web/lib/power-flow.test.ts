@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { derivePowerFlowVisuals, type GridState } from "./power-flow";
+import { combineBatteryPacks, derivePowerFlowVisuals, type GridState } from "./power-flow";
 
 describe("derivePowerFlowVisuals", () => {
   it("marks PV and load as flowing above the threshold, static at/below it", () => {
@@ -54,5 +54,48 @@ describe("derivePowerFlowVisuals", () => {
     // charging/discharging is meaningless without a reading, but must still resolve
     // to a boolean rather than throw -- the component decides what to render for it.
     expect(result.batteryCharging).toBe(false);
+  });
+});
+
+describe("combineBatteryPacks", () => {
+  it("sums two packs both charging, matching the reported dashboard numbers", () => {
+    const result = combineBatteryPacks([
+      { packPowerW: 73, packCurrentA: 2.77, socPercent: 47 },
+      { packPowerW: 65, packCurrentA: 2.46, socPercent: 55 },
+    ]);
+    expect(result.batteryPowerW).toBe(138);
+    expect(result.batterySocPercent).toBe(51);
+  });
+
+  it("nets opposite directions instead of summing magnitudes", () => {
+    // One pack charging, one discharging -- the bank's net flow is the
+    // difference, not 150 W. This is the reason power is summed SIGNED rather
+    // than combined-then-signed by an overall direction.
+    const result = combineBatteryPacks([
+      { packPowerW: 100, packCurrentA: 4, socPercent: 60 },
+      { packPowerW: 50, packCurrentA: -2, socPercent: 60 },
+    ]);
+    expect(result.batteryPowerW).toBe(50);
+  });
+
+  it("ignores packs with no power reading but keeps the ones that do", () => {
+    const result = combineBatteryPacks([
+      { packPowerW: null, packCurrentA: null, socPercent: null },
+      { packPowerW: 90, packCurrentA: -3, socPercent: 40 },
+    ]);
+    expect(result.batteryPowerW).toBe(-90);
+    expect(result.batterySocPercent).toBe(40);
+  });
+
+  it("returns null for both fields when no pack has data", () => {
+    const result = combineBatteryPacks([{ packPowerW: null, packCurrentA: null, socPercent: null }]);
+    expect(result.batteryPowerW).toBeNull();
+    expect(result.batterySocPercent).toBeNull();
+  });
+
+  it("returns null for an empty pack list", () => {
+    const result = combineBatteryPacks([]);
+    expect(result.batteryPowerW).toBeNull();
+    expect(result.batterySocPercent).toBeNull();
   });
 });

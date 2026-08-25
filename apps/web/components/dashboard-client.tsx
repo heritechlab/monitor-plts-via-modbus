@@ -30,6 +30,7 @@ import {
   number,
   power,
 } from "@/lib/format";
+import { combineBatteryPacks } from "@/lib/power-flow";
 import type {
   BmsDeviceSummary,
   BmsLatestResponse,
@@ -145,11 +146,16 @@ export function DashboardClient({ deviceSlug }: { deviceSlug: string }) {
   const [error, setError] = useState<string | null>(null);
   const bmsPacks = useBmsPacks();
   // Kartu contoh Pack B1 HANYA untuk tampilan daftar -- sengaja tidak dicampur
-  // ke bmsPacks itu sendiri, supaya PowerFlowDiagram (yang memakai bmsPacks[0]
-  // sebagai sumber watt/SOC baterai nyata) tidak pernah kebagian angka contoh.
+  // ke bmsPacks itu sendiri, supaya PowerFlowDiagram (yang memakai bmsPacks
+  // sungguhan lewat combineBatteryPacks) tidak pernah kebagian angka contoh.
   // Begitu pack kedua yang sungguhan terdaftar, kartu contoh ini tidak lagi
   // relevan -- dua pack nyata sudah cukup mengisi tata letak.
   const bmsPacksForDisplay = bmsPacks.length >= 2 ? bmsPacks : [mockPackB1(bmsPacks[0]), ...bmsPacks];
+  // Diagram aliran cuma punya satu simpul "Baterai" untuk seluruh bank, jadi
+  // semua pack nyata digabung jadi satu daya (bertanda) dan satu SOC rata-rata
+  // -- bukan cuma pack pertama, supaya totalnya benar begitu pack kedua online.
+  const { batteryPowerW: combinedBatteryPowerW, batterySocPercent: combinedBatterySocPercent } =
+    combineBatteryPacks(bmsPacks);
   const rated = useRatedCapacity(deviceSlug);
 
   const loadLatest = useCallback(async () => {
@@ -363,15 +369,9 @@ export function DashboardClient({ deviceSlug }: { deviceSlug: string }) {
             gridState={
               gridDetected === null ? "unknown" : !gridDetected ? "disconnected" : onGrid ? "supplying" : "standby"
             }
-            batteryPowerW={
-              bmsPacks[0]?.packPowerW === null || bmsPacks[0]?.packPowerW === undefined
-                ? null
-                : (bmsPacks[0]?.packCurrentA ?? 0) < 0
-                  ? -Math.abs(bmsPacks[0].packPowerW)
-                  : Math.abs(bmsPacks[0].packPowerW)
-            }
-            batterySocPercent={bmsPacks[0]?.socPercent ?? metrics?.inverter_soc_percent ?? null}
-            batterySocFromBms={bmsPacks.length > 0 && bmsPacks[0]?.socPercent !== null}
+            batteryPowerW={combinedBatteryPowerW}
+            batterySocPercent={combinedBatterySocPercent ?? metrics?.inverter_soc_percent ?? null}
+            batterySocFromBms={combinedBatterySocPercent !== null}
             loadVaW={metrics?.ac_output_power_w ?? null}
             inverterOnline={latest?.telemetry_status === "online"}
           />

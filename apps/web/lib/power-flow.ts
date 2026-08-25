@@ -36,3 +36,34 @@ export function derivePowerFlowVisuals(props: {
     gridTone: gridState === "supplying" ? "blue" : "muted",
   };
 }
+
+/** Gabungkan beberapa pack BMS jadi satu angka daya dan SOC untuk diagram
+ * aliran, yang cuma punya satu simpul "Baterai" -- bukan satu per pack.
+ *
+ * Daya dijumlahkan bertanda (bukan dijumlah lalu diberi tanda gabungan),
+ * supaya kalau satu pack mengisi dan satu discharge bersamaan, hasilnya tetap
+ * mencerminkan aliran neto ke/dari bank baterai secara keseluruhan.
+ *
+ * SOC dirata-rata sederhana (bukan berbobot kapasitas) -- pack B1 dan B2
+ * sama-sama 24V 100Ah, jadi rata-rata sederhana sudah representatif. Kalau
+ * suatu saat kapasitasnya berbeda, ini perlu diberi bobot per pack. */
+export function combineBatteryPacks(
+  packs: { packPowerW: number | null; packCurrentA: number | null; socPercent: number | null }[],
+): { batteryPowerW: number | null; batterySocPercent: number | null } {
+  const signedPowers = packs
+    .map((pack) => {
+      if (pack.packPowerW === null || pack.packPowerW === undefined) return null;
+      const sign = (pack.packCurrentA ?? 0) < 0 ? -1 : 1;
+      return sign * Math.abs(pack.packPowerW);
+    })
+    .filter((value): value is number => value !== null);
+
+  const socs = packs
+    .map((pack) => pack.socPercent)
+    .filter((value): value is number => value !== null && value !== undefined);
+
+  return {
+    batteryPowerW: signedPowers.length > 0 ? signedPowers.reduce((a, b) => a + b, 0) : null,
+    batterySocPercent: socs.length > 0 ? socs.reduce((a, b) => a + b, 0) / socs.length : null,
+  };
+}
