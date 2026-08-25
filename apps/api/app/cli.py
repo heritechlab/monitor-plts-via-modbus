@@ -131,7 +131,13 @@ def main() -> None:
     ensure = sub.add_parser("ensure-device")
     ensure.add_argument("--slug", default=settings.device_slug)
     ensure.add_argument("--name", default=settings.device_name)
-    ensure.add_argument("--api-key", default=settings.device_api_key)
+    # TIDAK default ke settings.device_api_key: itu kunci machine-level untuk
+    # SATU device bootstrap (dipakai langsung oleh main.py's lifespan, bukan
+    # lewat CLI ini). Menjadikannya default di sini dulu menyebabkan setiap
+    # device baru diam-diam mencoba memakai kunci yang sama -- gagal dengan
+    # UNIQUE constraint begitu kunci itu sudah terdaftar untuk device lain.
+    # Kosong di sini berarti ensure_device() men-generate kunci baru sendiri.
+    ensure.add_argument("--api-key", default=None)
     ensure.add_argument("--device-type", default="inverter", choices=["inverter", "bms"])
 
     prune = sub.add_parser("prune-raw", help="Kosongkan raw_registers sampel lama")
