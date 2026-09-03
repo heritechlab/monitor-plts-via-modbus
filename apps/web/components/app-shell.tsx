@@ -22,9 +22,9 @@ import { ThemeToggle } from "@/components/theme-toggle";
 const links = [
   { href: "/", label: "Ringkasan", icon: Gauge },
   { href: "/history", label: "Riwayat", icon: History },
-  { href: "/daily", label: "Harian", icon: CalendarDays, hideOnMobile: true },
+  { href: "/daily", label: "Harian", icon: CalendarDays },
   { href: "/monthly", label: "Bulanan", icon: BarChart3 },
-  { href: "/settings", label: "Register", icon: Binary },
+  { href: "/settings", label: "Register", icon: Binary, hideOnMobile: true },
   { href: "/battery", label: "Baterai", icon: BatteryCharging },
   { href: "/live-register", label: "Live", icon: Radio, desktopOnly: true },
   { href: "/data-quality", label: "Kualitas data", icon: Activity, desktopOnly: true },
